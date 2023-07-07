@@ -23,9 +23,19 @@ Built as a Rollup on the magnificent [Tezos](https://tezos.com) blockchain.
 
 ## Bit 
 
-A "Bit" is a piece of content on Politicus. We chose the word "Bit" because it is short, easy to say and remember.
+A **Bit** is a piece of content on Politicus. We chose the word "Bit" because it is short, easy to say and remember.
 
 > I just posted a Bit on Politicus.
+
+A Bit has the following properties:
+
+```
+* BID           - hash(Creator + Content)
+* Creator       - PublicKey 
+* Content       - hash(content)
+* Parent        - BID (if this BID is part of a conversation)
+* CreationTime  - Timestamp 
+```
 
 ## BitVote
 
