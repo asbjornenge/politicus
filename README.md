@@ -29,3 +29,4 @@ Built as a Rollup on the magnificent [Tezos](https://tezos.com) blockchain.
 
 ## Kernel 
 
+## Incentives
