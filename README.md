@@ -23,6 +23,10 @@ Built as a Rollup on the magnificent [Tezos](https://tezos.com) blockchain.
 
 ## Bit 
 
+A "Bit" is a piece of content on Politicus. We choose "Bit" because it is short and sweet.
+
+> I just posted a Bit on Politicus.
+
 ## Petiton
 
 ## Variable
