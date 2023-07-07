@@ -23,7 +23,7 @@ Built as a Rollup on the magnificent [Tezos](https://tezos.com) blockchain.
 
 ## Bit 
 
-A "Bit" is a piece of content on Politicus. We choose "Bit" because it is short and sweet.
+A "Bit" is a piece of content on Politicus. We chose the word "Bit" because it is short, easy to say and remember.
 
 > I just posted a Bit on Politicus.
 
