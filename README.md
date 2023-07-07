@@ -21,7 +21,11 @@ Politicus source code is open-source and free to use by anyone.
 **Politicus is built to last**  
 Built as a Rollup on the magnificent [Tezos](https://tezos.com) blockchain.
 
-## Objects
+## Posting
 
-* Posting
-* 
+## Petiton
+
+## Variable
+
+## Kernel 
+
