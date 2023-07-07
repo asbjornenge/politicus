@@ -16,10 +16,10 @@ Users are in charge of [moderation](). Any user can petition for the removal of 
 Politicus has a "constitution"; it's [kernel](). The kernel has [variables](). Users can peition to change variable and also to replace the kernel.
 
 **Politicus is free and open**  
-Anyone can create content on Politicus. Politicus source code is open-source and free to use by anyone.
+Politicus source code is open-source and free to use by anyone.
 
 **Politicus is built to last**  
-Built as a Rollup on magnificent [Tezos](https://tezos.com) blockchain.
+Built as a Rollup on the magnificent [Tezos](https://tezos.com) blockchain.
 
 ## Objects
 
