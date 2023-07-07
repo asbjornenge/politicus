@@ -27,7 +27,11 @@ A "Bit" is a piece of content on Politicus. We chose the word "Bit" because it i
 
 > I just posted a Bit on Politicus.
 
+## BitVote
+
 ## Petiton
+
+## PetitionVote
 
 ## Variable
 
