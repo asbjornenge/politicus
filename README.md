@@ -69,8 +69,8 @@ A Petiton is a request to change some aspect of CP. There are a few different ty
                     + MOD_CONTENT_DEL - Del ModerationEntry for a piece of content
                     + MOD_USER_ADD    - Add ModerationEntry for a User
                     + MOD_USER_DEL    - Del ModerationEntry for a User
-                    + VARIABLES       - Modify varibale
-                    + KERNEL          - Modify kernel
+                    + VARIABLES       - Modify variable
+                    + KERNEL          - Update kernel
                 )
 * Creator       - PublicKey
 * Content       - <JSON_MATCHING_ENUM> 
