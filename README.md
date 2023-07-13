@@ -50,7 +50,7 @@ A Bit has the following properties:
 A BitVote is a up/down vote for a Bit.
 
 ```
-* PID       - hash(BID + Voter)
+* VID       - hash(BID + Voter)
 * Voter     - PublicKey
 * Direction - Boolean (1=up, 0=down)
 * Votes     - Number of votes (quadratic cost increase?)
@@ -81,9 +81,7 @@ A BitVote is a up/down vote for a Bit.
 
 ### How do we deal with "copyminting"?
 
-If a Bit (hash) is already created we do not allow it's creating again.
-If a user believes he owns the rights to this bit, they can create a petition to have it removed.
-After it has been removed, they can create it themselves.
+If a user believes he owns the rights to the `content` of a Bit, they can create a petition to have it removed.
 The user can also petition to have the copyminter (user who created bit illegally) removed.
 
 ### How do we deal with fake content?
