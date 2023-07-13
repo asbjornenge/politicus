@@ -1,4 +1,4 @@
-# Politicus (DRAFT)
+# Curious Politicus (DRAFT)
 
 Politicus is a social network and publishing platform.
 
@@ -20,6 +20,9 @@ Politicus source code is open-source and free to use by anyone.
 
 **Politicus is built to last**  
 Built as a Rollup on the magnificent [Tezos](https://tezos.com) blockchain.
+
+**The name Curious Politicus is inspired bt the 17th century newsbook Mercurious Politicus**
+[Mercurius Politicus](https://en.wikipedia.org/wiki/Mercurius_Politicus) was a newsbook that was published weekly from June 1650 until the English Restoration in May 1660.
 
 ## Bit 
 
