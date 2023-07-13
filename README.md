@@ -82,7 +82,7 @@ A Petiton is a request to change some aspect of CP. There are a few different ty
 A PetitionVote is a up/down vote for a Petition.
 
 ```
-* VID       - hash(PID + Voter)
+* PVID      - hash(PID + Voter)
 * Voter     - PublicKey
 * Direction - Boolean (1=up, 0=down)
 * Votes     - Number of votes (quadratic cost increase?)
@@ -91,18 +91,37 @@ A PetitionVote is a up/down vote for a Petition.
 
 ## ModerationEntry
 
+When a Petition to create some form of moderation (Content or User) a ModerationEntry is created.
+The ModerationEntry prevents moderated content from being created and moderated users from using CP. 
 
+```
+* MID           - hash(content)
+* Type          - ENUM 
+                (
+                    + CONTENT
+                    + USER
+                )
+* Content       - <JSON_MATCHING_ENUM> 
+* YaY           - Number of UP votes
+* NaY           - Number of DOWN votes
+* CreationTime  - Timestamp
+```
 
 ## Variables
 
-```
-* BitCost                               - Cost to create a Bit                                      - $ 1
-* BitVoteCost                           - Cost to vote for a Bit                                    - $ 0.1
-* PetitionContentModerationCost         - Cost to create a petition to moderate a piece of content  - $ 500
-* PetitionContentModerationRemovalCost  - Cost to create a petition to remove a content moderation  - $ 250
+The different variable in the initial kernel / constitution.
 
-* PetitionTimeout  - 
-* PetitionVotingPeriod - 
+```
+* BitCost               - $ 1
+* BitVoteCost           - $ 0.1
+* Petitions 
+  ** MOD_CONTENT_ADD    - $ 500
+  ** MOD_CONTENT_DEL    - $ 250 
+  ** MOD_USER_ADD       - $ 1000
+  ** MOD_USER_DEL       - $ 500
+* PetitionVostCost      - $ 0.5
+* PetitionTimeout       - 
+* PetitionVotingPeriod  - 
 ```
 
 ## Kernel 
@@ -133,3 +152,4 @@ How can we prevent illegal content for re-appearing?
 
 * What about topics? Should that just be parsed by indexers from hashtags in Bit.content?
 * After a petition has been voted for, how long until it can be re-created? A variable?
+* Should we expand User from just a publickey - perhaps they can have multiple?
