@@ -168,4 +168,4 @@ How can we prevent illegal content for re-appearing?
   * It's probably a good idea to make sure people care about this petition?
   * Leaning towards yes - but it can be a variable
 * Should we allow blank votes?
- 
+* Instead of petition votes having a cost, should votes be earned? By creating Bits that gets high number of votes? 
