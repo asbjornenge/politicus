@@ -1,6 +1,6 @@
 # Curious Politicus (DRAFT)
 
-Curious Politicus is a social network and publishing platform.
+Curious Politicus (CP) is a social network and publishing platform.
 
 *In more detail, you can say it is an attempt to create a proper incentive structure for a self-governing social media network that will lead to positive outcomes for humanity.*
 
@@ -58,13 +58,17 @@ A BitVote is a up/down vote for a Bit.
 
 ## Petiton
 
+A Petiton is a request to change some aspect of CP. 
+
 ## PetitionVote
 
-## Variable
+## Variables
 
-* BitCost - Cost to create a Bit
-* BitVoteCost - Cost to vote for a Bit
-* PetitionCost
+```
+* BitCost       - Cost to create a Bit      - $ 1
+* BitVoteCost   - Cost to vote for a Bit    - $ 0.1
+* PetitionCost  - Cost to create a Petition - $ 5
+```
 
 ## Kernel 
 
