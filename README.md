@@ -1,6 +1,8 @@
 # Curious Politicus (DRAFT)
 
-Politicus is a social network and publishing platform.
+Curious Politicus is a social network and publishing platform.
+
+In more details, it's an attempt to create a proper incentive structure for a self-governing social media network that will lead to positive outcomes that will better humanity. Lofty goals...
 
 **In Politicus you will find only cryptographically signed content**.  
 That means that for any [key]() you come to trust, it will not be possible for anyone else act on their behalf.
@@ -75,9 +77,16 @@ A BitVote is a up/down vote for a Bit.
 
 ## Open questions
 
+### How do we deal with bots? 
+
 ### How do we deal with "copyminting"?
 
-If a bit (hash) is already created we do not allow it's creating again.
+If a Bit (hash) is already created we do not allow it's creating again.
 If a user believes he owns the rights to this bit, they can create a petition to have it removed.
 After it has been removed, they can create it themselves.
-The user can also petition to have the copyminter (user who created bit illegally) removed. 
+The user can also petition to have the copyminter (user who created bit illegally) removed.
+
+### How do we deal with fake content?
+
+### How do we deal with illegal content?
+
