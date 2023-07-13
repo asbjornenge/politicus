@@ -113,14 +113,14 @@ The different variable in the initial kernel / constitution.
 
 ```
 * BitCost                                   - $ 1
-* BitVoteCost                               - $ 0.1
+* BitVoteCost                               - $ 0.1  (quadratic)
 * PetitionContentModerationAddCost          - $ 500
-* PetitionContentModerationDelCost          - $ 250
+* PetitionContentModerationDelCost          - $ 250  (function if already exists)
 * PetitionUserModerationAddCost             - $ 1000
-* PetitionUserModerationDelCost             - $ 500
+* PetitionUserModerationDelCost             - $ 500  (function if already exists)
 * PetitionUpdateVariableCost                - $ 2500
 * PetitionUpdateKernelCost                  - $ 5000
-* PetitionVoteCost                          - $ 0.5     (Quadratic increase)
+* PetitionVoteCost                          - $ 0.5  (quadratic)
 * PetitionContentModerationQuorum           - % 1
 * PetitionUserModerationQuorum              - % 2
 * PetitionUpdateVariableQuorum              - % 40
