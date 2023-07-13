@@ -114,14 +114,15 @@ The different variable in the initial kernel / constitution.
 ```
 * BitCost               - $ 1
 * BitVoteCost           - $ 0.1
-* Petitions 
+* PetitionCost
   ** MOD_CONTENT_ADD    - $ 500
-  ** MOD_CONTENT_DEL    - $ 250 
+  ** MOD_CONTENT_DEL    - $ 250 (function of CreationTime and YaY/NaY of ModerationEntry?)
   ** MOD_USER_ADD       - $ 1000
-  ** MOD_USER_DEL       - $ 500
-* PetitionVostCost      - $ 0.5
-* PetitionTimeout       - 
-* PetitionVotingPeriod  - 
+  ** MOD_USER_DEL       - $ 500 (function of CreationTime and YaY/NaY of ModerationEntry?)
+  ** VARIABLE
+  ** KERNEL
+* PetitionVoteCost      - $ 0.5
+* PetitionDuration      - 30 days 
 ```
 
 ## Kernel 
@@ -153,3 +154,10 @@ How can we prevent illegal content for re-appearing?
 * What about topics? Should that just be parsed by indexers from hashtags in Bit.content?
 * After a petition has been voted for, how long until it can be re-created? A variable?
 * Should we expand User from just a publickey - perhaps they can have multiple?
+* Should we have different costs for different Petition types?
+* Should we have different vote weights (3/4 majority) for different Petition types? <- YES (Kernel should require atleast 3/4)
+* Should we require min participation for Petitions?
+  ** Atleast kernel?
+  ** It's probably a good idea to make sure people care about this petition?
+  ** Leaning towards yes - but it can be a variable
+* Should we allow blank votes? 
