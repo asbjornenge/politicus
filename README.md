@@ -62,9 +62,24 @@ A Petiton is a request to change some aspect of CP. There are a few different ty
 
 ### ModerateContentPetition
 
-A ModerateContentPetition is a Petition to have some piece of content remove
+A ModerateContentPetition is a Petition to have some piece of content removed.
+
+```
+* PID     - hash(BID + Creator)
+* Creator - PublicKey
+* Content - BID
+* Cleanup - Boolean (1=remove all Bits with the same Bit.content, 0=remove only this Bit) 
+```
 
 ### ModerateUserPetition
+
+A ModerateUserPetition is a Petition to remove a user (and all of their Bits).
+
+```
+* PID     - hash(BID + Creator)
+* Creator - PublicKey
+* User    - PublicKey
+```
 
 ### ChangeVariablePetition
 
@@ -77,7 +92,7 @@ A ModerateContentPetition is a Petition to have some piece of content remove
 ```
 * BitCost       - Cost to create a Bit      - $ 1
 * BitVoteCost   - Cost to vote for a Bit    - $ 0.1
-* PetitionCost  - Cost to create a Petition - $ 5
+* PetitionCost  - Cost to create a Petition - $ 500
 ```
 
 ## Kernel 
@@ -102,3 +117,4 @@ The user can also petition to have the copyminter (user who created bit illegall
 
 ### How do we deal with illegal content?
 
+How can we prevent illegal content for re-appearing?
