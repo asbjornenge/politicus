@@ -15,7 +15,7 @@ We also create a source of revenue for content creators.
 Users are in charge of [moderation](). Any user can petition for the removal of any piece of content or user.
 
 **Politicus itself is user controlled.**  
-Politicus has a "constitution"; it's [kernel](). The kernel has [variables](). Users can peition to change variable and also to replace the kernel.
+Politicus has a "constitution"; it's [kernel](). The kernel has [variables](). Users can peition to change variables and also to replace the kernel.
 
 **Politicus is free and open**  
 Politicus source code is open-source and free to use by anyone.
@@ -45,12 +45,39 @@ A Bit has the following properties:
 
 ## BitVote
 
+A BitVote is a up/down vote for a Bit.
+
+```
+* PID       - hash(BID + Voter)
+* Voter     - PublicKey
+* Direction - Boolean (1=up, 0=down)
+* Votes     - Number of votes (quadratic cost increase?)
+```
+
 ## Petiton
 
 ## PetitionVote
 
 ## Variable
 
+* BitCost - Cost to create a Bit
+* BitVoteCost - Cost to vote for a Bit
+* PetitionCost
+
 ## Kernel 
 
 ## Incentives
+
+* Incentives to create Bits
+* Incentives to vote on Bits
+* Incentives to create Petitions
+* Incentives to vote on Petitions
+
+## Open questions
+
+### How do we deal with "copyminting"?
+
+If a bit (hash) is already created we do not allow it's creating again.
+If a user believes he owns the rights to this bit, they can create a petition to have it removed.
+After it has been removed, they can create it themselves.
+The user can also petition to have the copyminter (user who created bit illegally) removed. 
