@@ -2,7 +2,7 @@
 
 Curious Politicus is a social network and publishing platform.
 
-In more details, it's an attempt to create a proper incentive structure for a self-governing social media network that will lead to positive outcomes that will better humanity. Lofty goals...
+In more detail, you can say it is an attempt to create a proper incentive structure for a self-governing social media network that will lead to positive outcomes for humanity. Lofty goals...
 
 **In Politicus you will find only cryptographically signed content**.  
 That means that for any [key]() you come to trust, it will not be possible for anyone else act on their behalf.
