@@ -21,8 +21,9 @@ Politicus source code is open-source and free to use by anyone.
 **Politicus is built to last**  
 Built as a Rollup on the magnificent [Tezos](https://tezos.com) blockchain.
 
-**The name Curious Politicus is inspired bt the 17th century newsbook Mercurious Politicus**
+**The name Curious Politicus is inspired bt the 17th century newsbook Mercurious Politicus**  
 [Mercurius Politicus](https://en.wikipedia.org/wiki/Mercurius_Politicus) was a newsbook that was published weekly from June 1650 until the English Restoration in May 1660.
+We replaced the latin word Mercurious (messenger) and substitud the english word Curious. Politicus is a latin word for "political". We also take inspiration from the greek concept of "polis" which represented a self-governing community with its laws, institutions, and identity. So loosely you can say the the name "Curious Politicus" means "Curious about self-governing communities" or something like that. Also we think it is quite catchy.
 
 ## Bit 
 
