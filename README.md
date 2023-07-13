@@ -58,7 +58,17 @@ A BitVote is a up/down vote for a Bit.
 
 ## Petiton
 
-A Petiton is a request to change some aspect of CP. 
+A Petiton is a request to change some aspect of CP. There are a few different types of petitions.
+
+### ModerateContentPetition
+
+A ModerateContentPetition is a Petition to have some piece of content remove
+
+### ModerateUserPetition
+
+### ChangeVariablePetition
+
+### UpdateKernelPetition
 
 ## PetitionVote
 
