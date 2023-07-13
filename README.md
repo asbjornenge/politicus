@@ -110,7 +110,7 @@ A ModerateUserPetition is a Petition to remove a user (and all of their Bits).
 * PetitionContentModerationRemovalCost  - Cost to create a petition to remove a content moderation  - $ 250
 
 * PetitionTimeout  - 
-* PetitionCooldown - 
+* PetitionVotingPeriod - 
 ```
 
 ## Kernel 
