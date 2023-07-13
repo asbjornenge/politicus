@@ -63,13 +63,25 @@ A Petiton is a request to change some aspect of CP. There are a few different ty
 
 **NOTE! We should store moderation items, right? So content cannot just be re-created and user just re-join. If yes, then we need moderation removal petitions. They should be cheaper than the ones to create moderation...? Think about this...**
 
-### ModerateContentPetition
+### ContentModerationPetition
 
-A ModerateContentPetition is a Petition to have some piece of content removed.
+A ContentModerationPetition is a Petition to have some piece of content removed.
 
 ```
-* PID           - Bit.content
+* PID           - hash('petition'+Bit.content)
 * Creator       - PublicKey
+* Content       - Bit.content
+* CreationTime  - Timestamp 
+```
+
+### ContentModerationRemovalPetition 
+
+A ContentModerationRemovalPetition is a Petition to remove a previously created content moderation.
+
+```
+* PID           - hash('petition'+Bit.content)
+* Creator       - PublicKey
+* Content       - Bit.content
 * CreationTime  - Timestamp 
 ```
 
@@ -92,9 +104,10 @@ A ModerateUserPetition is a Petition to remove a user (and all of their Bits).
 ## Variables
 
 ```
-* BitCost          - Cost to create a Bit      - $ 1
-* BitVoteCost      - Cost to vote for a Bit    - $ 0.1
-* PetitionCost     - Cost to create a Petition - $ 500
+* BitCost                               - Cost to create a Bit                                      - $ 1
+* BitVoteCost                           - Cost to vote for a Bit                                    - $ 0.1
+* PetitionContentModerationCost         - Cost to create a petition to moderate a piece of content  - $ 500
+* PetitionContentModerationRemovalCost  - Cost to create a petition to remove a content moderation  - $ 250
 
 * PetitionTimeout  - 
 * PetitionCooldown - 
@@ -123,3 +136,7 @@ The user can also petition to have the copyminter (user who created bit illegall
 ### How do we deal with illegal content?
 
 How can we prevent illegal content for re-appearing?
+
+## Notes
+
+* What about topics? Should that just be parsed by indexers from hashtags in Bit.content?
