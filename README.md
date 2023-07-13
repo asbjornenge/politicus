@@ -5,6 +5,10 @@ Politicus is a social network and publishing platform.
 **In Politicus you will find only cryptographically signed content**.  
 That means that for any [key]() you come to trust, it will not be possible for anyone else act on their behalf.
 
+```
+Example: You should not trust a video that is not signed by one or several trusted news agencies. It could be a deepfake.
+```
+
 **Actions on Politicus have a cost**.  
 By adding a cost to all actions in Politicus we assure that actors weigh their actions and avoid unecessary noise, bots, etc. 
 We also create a source of revenue for content creators.
