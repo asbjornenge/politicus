@@ -125,8 +125,8 @@ The different variable in the initial kernel / constitution.
 * PetitionUserModerationQuorum              - % 2
 * PetitionUpdateVariableQuorum              - % 40
 * PetitionUpdateKernelQuorum                - % 50
-* PetitionContentModerationMajority         - % 1
-* PetitionUserModerationMajority            - % 2
+* PetitionContentModerationMajority         - % 50
+* PetitionUserModerationMajority            - % 50
 * PetitionUpdateVariableMajority            - % 80
 * PetitionUpdateKernelMajority              - % 90
 * PetitionDuration                          - d 30
