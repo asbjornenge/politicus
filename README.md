@@ -61,8 +61,6 @@ A BitVote is a up/down vote for a Bit.
 
 A Petiton is a request to change some aspect of CP. There are a few different types of petitions.
 
-**NOTE! We should store moderation items, right? So content cannot just be re-created and user just re-join. If yes, then we need moderation removal petitions. They should be cheaper than the ones to create moderation...? Think about this...**
-
 ### ContentModerationPetition
 
 A ContentModerationPetition is a Petition to have some piece of content removed.
