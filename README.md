@@ -61,43 +61,37 @@ A BitVote is a up/down vote for a Bit.
 
 A Petiton is a request to change some aspect of CP. There are a few different types of petitions.
 
-### ContentModerationPetition
-
-A ContentModerationPetition is a Petition to have some piece of content removed.
-
 ```
-* PID           - hash('petition'+Bit.content)
+* PID           - hash(content)
+* Type          - ENUM 
+                (
+                    + MOD_CONTENT_ADD - Add ModerationEntry for a piece of content
+                    + MOD_CONTENT_DEL - Del ModerationEntry for a piece of content
+                    + MOD_USER_ADD    - Add ModerationEntry for a User
+                    + MOD_USER_DEL    - Del ModerationEntry for a User
+                    + VARIABLES       - Modify varibale
+                    + KERNEL          - Modify kernel
+                )
 * Creator       - PublicKey
-* Content       - Bit.content
-* CreationTime  - Timestamp 
+* Content       - <JSON_MATCHING_ENUM> 
+* CreationTime  - Timestamp
 ```
-
-### ContentModerationRemovalPetition 
-
-A ContentModerationRemovalPetition is a Petition to remove a previously created content moderation.
-
-```
-* PID           - hash('petition'+Bit.content)
-* Creator       - PublicKey
-* Content       - Bit.content
-* CreationTime  - Timestamp 
-```
-
-### ModerateUserPetition
-
-A ModerateUserPetition is a Petition to remove a user (and all of their Bits).
-
-```
-* PID     - hash(BID + Creator)
-* Creator - PublicKey
-* User    - PublicKey
-```
-
-### ChangeVariablePetition
-
-### UpdateKernelPetition
 
 ## PetitionVote
+
+A PetitionVote is a up/down vote for a Petition.
+
+```
+* VID       - hash(PID + Voter)
+* Voter     - PublicKey
+* Direction - Boolean (1=up, 0=down)
+* Votes     - Number of votes (quadratic cost increase?)
+* VoteTime  - Timestamp
+```
+
+## ModerationEntry
+
+
 
 ## Variables
 
@@ -138,3 +132,4 @@ How can we prevent illegal content for re-appearing?
 ## Notes
 
 * What about topics? Should that just be parsed by indexers from hashtags in Bit.content?
+* After a petition has been voted for, how long until it can be re-created? A variable?
