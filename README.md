@@ -54,6 +54,7 @@ A BitVote is a up/down vote for a Bit.
 * Voter     - PublicKey
 * Direction - Boolean (1=up, 0=down)
 * Votes     - Number of votes (quadratic cost increase?)
+* VoteTime  - Timestamp
 ```
 
 ## Petiton
@@ -67,10 +68,9 @@ A Petiton is a request to change some aspect of CP. There are a few different ty
 A ModerateContentPetition is a Petition to have some piece of content removed.
 
 ```
-* PID     - hash(BID + Creator)
-* Creator - PublicKey
-* Content - BID
-* Cleanup - Boolean (1=remove all Bits with the same Bit.content, 0=remove only this Bit) 
+* PID           - Bit.content
+* Creator       - PublicKey
+* CreationTime  - Timestamp 
 ```
 
 ### ModerateUserPetition
@@ -92,9 +92,12 @@ A ModerateUserPetition is a Petition to remove a user (and all of their Bits).
 ## Variables
 
 ```
-* BitCost       - Cost to create a Bit      - $ 1
-* BitVoteCost   - Cost to vote for a Bit    - $ 0.1
-* PetitionCost  - Cost to create a Petition - $ 500
+* BitCost          - Cost to create a Bit      - $ 1
+* BitVoteCost      - Cost to vote for a Bit    - $ 0.1
+* PetitionCost     - Cost to create a Petition - $ 500
+
+* PetitionTimeout  - 
+* PetitionCooldown - 
 ```
 
 ## Kernel 
