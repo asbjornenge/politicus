@@ -35,7 +35,7 @@ We replaced the latin word Mercurious (messenger) and substitud the english word
 
 ## User
 
-A **User** is an individual, a human being in the universe, that is using Politicus. Users need to provide a "proof of personhood" from the [Worldcoin](https://worldcoin.org/) project in order to be able to post on CP.
+A **User** is an individual, a human being in the universe, that is using Politicus. Users need to provide a "proof of personhood" from the [Worldcoin](https://worldcoin.org/) project in order to be able to use CP.
 
 A User has the following properties:
 
@@ -53,6 +53,7 @@ A Syndicate has the following properties.
 
 ```
 * SID         - String (Randomly generated?)
+* Creator     - PublicKey
 * Name        - String
 * Description - String
 * Associates  - List<PublicKey>
@@ -95,14 +96,17 @@ A Petiton is a request to change some aspect of CP. There are a few different ty
 * PID           - hash(content)
 * Type          - ENUM 
                 (
-                    + MOD_CONTENT_ADD - Add ModerationEntry for a piece of content
-                    + MOD_CONTENT_DEL - Del ModerationEntry for a piece of content
-                    + MOD_USER_ADD    - Add ModerationEntry for a User
-                    + MOD_USER_DEL    - Del ModerationEntry for a User
-                    + REM_CONTENT     - Remove a piece of content
-                    + REM_USER        - Remove a user (an all their bits)
-                    + VARIABLES       - Modify variable(s)
-                    + KERNEL          - Update kernel
+                    + MOD_SYNDICATE_ADD - Add ModerationEntry for a Syndicate 
+                    + MOD_SYNDICATE_DEL - Del ModerationEntry for a Syndicate
+                    + MOD_CONTENT_ADD   - Add ModerationEntry for a piece of content
+                    + MOD_CONTENT_DEL   - Del ModerationEntry for a piece of content
+                    + MOD_USER_ADD      - Add ModerationEntry for a User
+                    + MOD_USER_DEL      - Del ModerationEntry for a User
+                    + REM_SYNDICATE     - Remove a Syndicate (and all their Bits)
+                    + REM_CONTENT       - Remove a piece of content
+                    + REM_USER          - Remove a User (and all their Bits)
+                    + VARIABLES         - Modify variable(s)
+                    + KERNEL            - Update kernel
                 )
 * Creator       - PublicKey
 * Content       - <JSON_MATCHING_ENUM> 
@@ -130,6 +134,7 @@ The ModerationEntry prevents moderated content from being created and moderated 
 * MID           - hash(content)
 * Type          - ENUM
                 (
+                    + SYNDICATE
                     + CONTENT
                     + USER
                 )
@@ -175,7 +180,39 @@ The different variables in the initial kernel / constitution.
 
 ## Moderation
 
-Write a bit about how moderation works and the difference between a ModerationEntry and removing content / Users  / Syndicates.
+There are two types of moderation; `MOD` and `REM`.
+
+### MOD
+
+MOD creates a ModerationEntry in storage and there are 3 types;
+
+```
+MOD_SYNDICATE - Block a Syndicate from creating further content on Politicus
+MOD_CONTENT   - Block a specific piece of content from being created again
+MOD_USER      - Block a User from creating further content on Politicus
+```
+
+MODs can be added and removed (lifted).
+
+#### MOD_CONTENT
+
+MOD_CONTENT has a few caveats. 
+
+A User can create a Bit with the content `<BAD_WORD>`, this can be moderated. But then the user can just create a new Bit with the content `<BAD_WORD>.` and it will not be blocked. In this case it is perhaps better to petition for MOD_USER or REM_USER for the violating User.
+
+The same would be true for an offensive image ^. A User could just modify a single bit of the image and it would not be moderated. In this case also the solution would be to petition for MOD_USER or REM_USER.
+
+### REM
+
+REM removes Users, Syndicates or Content from Politicus and there are 3 types;
+
+```
+REM_SYNDICATE - Removes a Syndicate from creating further content on Politicus
+REM_CONTENT   - Removes a specific piece of content from politicus
+REM_USER      - Removes a User from creating further content on Politicus
+```
+
+For REM_SYNDICATE and REM_USER a MOD_SYNDICATE and MOD_USER moderation entry is create also.
 
 ## Open questions
 
