@@ -184,7 +184,7 @@ There are two types of moderation; `MOD` and `REM`.
 
 ### MOD
 
-MOD creates a ModerationEntry in storage and there are 3 types;
+**MOD** creates a ModerationEntry in storage and there are 3 types;
 
 ```
 MOD_SYNDICATE - Block a Syndicate from creating further content on Politicus
@@ -196,15 +196,17 @@ MODs can be added and removed (lifted).
 
 #### MOD_CONTENT
 
-MOD_CONTENT has a few caveats. 
+`MOD_CONTENT` has a few caveats. 
 
 A User can create a Bit with the content `<BAD_WORD>`, this can be moderated. But then the user can just create a new Bit with the content `<BAD_WORD>.` and it will not be blocked. In this case it is perhaps better to petition for MOD_USER or REM_USER for the violating User.
 
 The same would be true for an offensive image ^. A User could just modify a single bit of the image and it would not be moderated. In this case also the solution would be to petition for MOD_USER or REM_USER.
 
+We still think it is useful to keep `MOD_CONTENT` as an option.
+
 ### REM
 
-REM removes Users, Syndicates or Content from Politicus and there are 3 types;
+**REM** removes Users, Syndicates or Content from Politicus and there are 3 types;
 
 ```
 REM_SYNDICATE - Removes a Syndicate from creating further content on Politicus
