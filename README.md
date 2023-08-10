@@ -194,8 +194,6 @@ MOD_USER      - Block a User from creating further content on Politicus
 
 MODs can be added and removed (lifted).
 
-#### MOD_CONTENT
-
 `MOD_CONTENT` has a few caveats. 
 
 A User can create a Bit with the content `<BAD_WORD>`, this can be moderated. But then the user can just create a new Bit with the content `<BAD_WORD>.` and it will not be blocked. In this case it is perhaps better to petition for MOD_USER or REM_USER for the violating User.
