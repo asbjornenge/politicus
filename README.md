@@ -31,13 +31,14 @@ We replaced the latin word Mercurious (messenger) and substitud the english word
 
 ## User
 
-A **User** is an individual, a human being in the universe, that is using Politicus. Users need to provide a "proof of personhood" from the [Worldcoin]() project in order to be able to post on CP.
+A **User** is an individual, a human being in the universe, that is using Politicus. Users need to provide a "proof of personhood" from the [Worldcoin](https://worldcoin.org/) project in order to be able to post on CP.
 
 A User has the following properties:
 
 ```
 * UID       - PublicKey
 * UserName  - String
+* Bio       - Text
 ```
 
 ## Syndicate
@@ -47,8 +48,9 @@ A **Syndicate** is an association of **Users** working together on a shared proj
 A Syndicate has the following properties.
 
 ```
-* SID         - String (Creator PublicKey + Initial Name)
+* SID         - String (Randomly generated?)
 * Name        - String
+* Description - String
 * Associates  - List<PublicKey>
 ```
 
@@ -93,6 +95,8 @@ A Petiton is a request to change some aspect of CP. There are a few different ty
                     + MOD_CONTENT_DEL - Del ModerationEntry for a piece of content
                     + MOD_USER_ADD    - Add ModerationEntry for a User
                     + MOD_USER_DEL    - Del ModerationEntry for a User
+                    + REM_CONTENT     - Remove a piece of content
+                    + REM_USER        - Remove a user (an all their bits)
                     + VARIABLES       - Modify variable
                     + KERNEL          - Update kernel
                 )
@@ -165,6 +169,10 @@ The different variable in the initial kernel / constitution.
 * Incentives to create Petitions
 * Incentives to vote on Petitions
 
+## Moderation
+
+Write a bit about how moderation works and the difference between a ModerationEntry and removing content / Users  / Syndicates.
+
 ## Open questions
 
 ### How do we deal with bots?
@@ -172,25 +180,22 @@ The different variable in the initial kernel / constitution.
 ### How do we deal with "copyminting"?
 
 If a user believes he owns the rights to the `content` of a Bit, they can create a petition to have it removed.
-The user can also petition to have the copyminter (user who created bit illegally) removed.
+They can then create it themselves. The user can also petition to have the copyminter (user who created bit illegally) blocked or removed.
 
 ### How do we deal with fake content?
 
 ### How do we deal with illegal content?
 
+### How do we handle topics / hashtags
+
+CP itself does not parse, link or otherwize deal with topics or hashtags. That is a job for indexers.
+
 ## Notes
 
-* What about topics? Should that just be parsed by indexers from hashtags in Bit.content?
 * After a petition has been voted for, how long until it can be re-created? A variable?
-* Should we expand User from just a publickey - perhaps they can have multiple?
-* Should we have different costs for different Petition types?
-* Should we have different vote weights (3/4 majority) for different Petition types? <- YES (Kernel should require atleast 3/4)
-* Should we require min participation for Petitions?
-  * Atleast kernel?
-  * It's probably a good idea to make sure people care about this petition?
-  * Leaning towards yes - but it can be a variable
 * Should we allow blank votes?
 * Instead of petition votes having a cost, should votes be earned? By creating Bits that gets high number of votes?
-
-* If a moderation entry is created for some piece of content, it cannot be re-create by the user. Having content removed (so it can be created) is different from having a moderation entry.
-
+* What happends if a BIT parent is removed? Just treat it as an orphan?
+* Add missing variables for REM_
+* Do we need REM_SYNDICATE ?
+* Does MOD_USER_ADD not imply removing all their Bits? I think not...
