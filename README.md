@@ -1,17 +1,21 @@
 # Curious Politicus (DRAFT)
 
-Curious Politicus (CP) is a social network and publishing platform.
+Curious Politicus (CP or Politicus) is a social network and publishing platform.
 
 *In more detail, you can say it is an attempt to create a proper incentive structure for a self-governing social media network that will lead to positive outcomes for humanity.*
 
-**In Politicus you will find only cryptographically signed content**.  
+**On Politicus you will find only cryptographically signed content**.  
 That means that for any [key]() you come to trust, it will not be possible for anyone else act on their behalf.
 
 > Is that video signed by anyone you trust? If not, it might be a deepfake. 
 
 **Actions on Politicus have a cost**.  
-By adding a cost to all actions in Politicus we assure that actors weigh their actions and avoid unecessary noise, bots, etc. 
+By adding a cost to all actions in Politicus we assure that actors weigh their actions and avoid unecessary noise. 
 We also create a source of revenue for content creators.
+
+**On Politicus all accounts are human beings (and there are no duplicates)**
+In order to create an account on CP a user needs to be verified by the [Worldcoin](https://worldcoin.org/) project. There are no bots on Politicus.
+There are also no duplicates, meaning a single user cannot create multiple accounts.
 
 **Moderation on Policitus is user controlled.**  
 Users are in charge of [moderation](). Any user can petition for the removal of any piece of content or user.
@@ -97,7 +101,7 @@ A Petiton is a request to change some aspect of CP. There are a few different ty
                     + MOD_USER_DEL    - Del ModerationEntry for a User
                     + REM_CONTENT     - Remove a piece of content
                     + REM_USER        - Remove a user (an all their bits)
-                    + VARIABLES       - Modify variable
+                    + VARIABLES       - Modify variable(s)
                     + KERNEL          - Update kernel
                 )
 * Creator       - PublicKey
@@ -137,7 +141,7 @@ The ModerationEntry prevents moderated content from being created and moderated 
 
 ## Variables
 
-The different variable in the initial kernel / constitution.
+The different variables in the initial kernel / constitution.
 
 ```
 * BitCost                                   - $ 1
