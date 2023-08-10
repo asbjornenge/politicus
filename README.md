@@ -13,7 +13,7 @@ That means that for any [key]() you come to trust, it will not be possible for a
 By adding a cost to all actions in Politicus we assure that actors weigh their actions and avoid unecessary noise. 
 We also create a source of revenue for content creators.
 
-**On Politicus all accounts are human beings (and there are no duplicates)**
+**On Politicus all accounts are human beings (and there are no duplicates)**  
 In order to create an account on CP a user needs to be verified by the [Worldcoin](https://worldcoin.org/) project. There are no bots on Politicus.
 There are also no duplicates, meaning a single user cannot create multiple accounts.
 
