@@ -29,7 +29,30 @@ Built as a Rollup on the magnificent [Tezos](https://tezos.com) blockchain.
 [Mercurius Politicus](https://en.wikipedia.org/wiki/Mercurius_Politicus) was a newsbook that was published weekly from June 1650 until the English Restoration in May 1660.
 We replaced the latin word Mercurious (messenger) and substitud the english word Curious. Politicus is a latin word for "political". We also take inspiration from the greek concept of "polis" which represented a self-governing community with its laws, institutions, and identity. So loosely you can say the the name "Curious Politicus" means "Curious about self-governing communities" or something like that. Also we think it is quite catchy.
 
-## Bit 
+## User
+
+A **User** is an individual, a human being in the universe, that is using Politicus. Users need to provide a "proof of personhood" from the [Worldcoin]() project in order to be able to post on CP.
+
+A User has the following properties:
+
+```
+* UID       - PublicKey
+* UserName  - String
+```
+
+## Syndicate
+
+A **Syndicate** is an association of **Users** working together on a shared project.
+
+A Syndicate has the following properties.
+
+```
+* SID         - String (Creator PublicKey + Initial Name)
+* Name        - String
+* Associates  - List<PublicKey>
+```
+
+## Bit
 
 A **Bit** is a piece of content on Politicus. We chose the word "Bit" because it is short, easy to say and remember.
 
@@ -38,11 +61,12 @@ A **Bit** is a piece of content on Politicus. We chose the word "Bit" because it
 A Bit has the following properties:
 
 ```
-* BID           - hash(Creator + Content)
-* Creator       - PublicKey 
+* BID           - hash(Creators + Content)
+* Creators      - List<PublicKey>
 * Content       - hash(content)
 * Parent        - BID (if this BID is part of a conversation)
-* CreationTime  - Timestamp 
+* Syndicate     - SID (if this BID is posted from a syndicate)
+* CreationTime  - Timestamp
 ```
 
 ## BitVote
@@ -96,7 +120,7 @@ The ModerationEntry prevents moderated content from being created and moderated 
 
 ```
 * MID           - hash(content)
-* Type          - ENUM 
+* Type          - ENUM
                 (
                     + CONTENT
                     + USER
@@ -143,7 +167,7 @@ The different variable in the initial kernel / constitution.
 
 ## Open questions
 
-### How do we deal with bots? 
+### How do we deal with bots?
 
 ### How do we deal with "copyminting"?
 
@@ -153,8 +177,6 @@ The user can also petition to have the copyminter (user who created bit illegall
 ### How do we deal with fake content?
 
 ### How do we deal with illegal content?
-
-How can we prevent illegal content for re-appearing?
 
 ## Notes
 
@@ -168,4 +190,7 @@ How can we prevent illegal content for re-appearing?
   * It's probably a good idea to make sure people care about this petition?
   * Leaning towards yes - but it can be a variable
 * Should we allow blank votes?
-* Instead of petition votes having a cost, should votes be earned? By creating Bits that gets high number of votes? 
+* Instead of petition votes having a cost, should votes be earned? By creating Bits that gets high number of votes?
+
+* If a moderation entry is created for some piece of content, it cannot be re-create by the user. Having content removed (so it can be created) is different from having a moderation entry.
+
