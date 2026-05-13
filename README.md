@@ -228,6 +228,10 @@ The different variables in the initial kernel / constitution.
 * PetitionUpdateVariableMajority            - % 80
 * PetitionUpdateKernelMajority              - % 90
 * PetitionDuration                          - d 30
+* TreasuryFee                               - % 3    (share of action fees routed to Treasury)
+* TreasuryAddress                           - Address (initial: platform creator)
+* BitNFTPrimaryFee                          - % 2.5  (share of BitNFT primary sales to Treasury)
+* BitNFTSecondaryFee                        - % 0.5  (share of BitNFT secondary sales to Treasury)
 ```
 
 ## Kernel 
@@ -276,6 +280,32 @@ REM_USER      - Removes a User from creating further content on Politicus
 For REM_SYNDICATE and REM_USER a MOD_SYNDICATE and MOD_USER moderation entry is create also.
 
 **What "removal" actually means.** Since the chain is immutable, REM does not erase the on-chain record. It signals to compliant indexers and gateways that they must stop serving the off-chain bytes that the on-chain hash refers to. The signature and hash remain on chain as historical record; the content itself becomes unreachable through the canonical network. See the "Where does the actual content live?" section under Bit.
+
+## Sustainability
+
+Politicus is user-controlled *post-launch* — but someone has to build version 1, and that person needs to eat. We are explicit about this rather than pretending otherwise. The kernel includes a small, transparent, governable fee structure to fund ongoing development.
+
+**How it works:**
+
+* `TreasuryFee` is a small share (initially `3%`) of all action fees (BitCost, PetitionCost, vote costs, etc.) that is routed to `TreasuryAddress`.
+* `BitNFTPrimaryFee` (initially `2.5%`) and `BitNFTSecondaryFee` (initially `0.5%`) take a share of BitNFT sales. These are only collected when creators are actually earning — aligned incentives.
+* `TreasuryAddress` is initially the platform creator's address. This is honest: someone built this, and that someone gets paid for ongoing maintenance and stewardship.
+
+**This is fully governable.** `TreasuryFee`, `TreasuryAddress` and the two BitNFT fees are kernel variables like any other. The community can petition to:
+
+* Reduce the fees to zero (an 80% supermajority on a variable change).
+* Change `TreasuryAddress` to point at a DAO contract — at which point the treasury becomes community-controlled.
+* Replace the whole structure via KERNEL petition (90% supermajority).
+
+The intent is **not** that the founder collects fees forever. The intent is that the founder is funded during the bootstrap phase, and that the community can take over treasury control whenever it has the will and the structure to do so. A DAO migration is the expected long-term endpoint — the kernel just doesn't presume to know what kind of DAO, or when. That is for the community to decide.
+
+**What this does not include:**
+
+* No protocol-level advertising.
+* No hidden fees. Every fee in the system is a kernel variable, visible to everyone, modifiable by petition.
+* No founder token allocation. Politicus uses Tezos-denominated stablecoin pricing — there is no native token to allocate.
+
+Outside the protocol, the platform creator may also operate a reference client, verification services, or other off-protocol businesses. Those are normal commercial activities and do not touch the kernel.
 
 ## Open questions
 
