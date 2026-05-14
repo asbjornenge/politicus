@@ -9,7 +9,8 @@
     "fund": "node scripts/fund-account.mjs",
     "balance": "node scripts/check-balance.mjs",
     "compile": "node scripts/compile.mjs",
-    "originate:variables": "node scripts/originate-variables.mjs"
+    "originate:variables": "node scripts/originate-variables.mjs",
+    "originate:treasury": "node scripts/originate-treasury.mjs"
   },
   "dependencies": {
     "@tacoinfra/get-tez": "^1.0.1",
