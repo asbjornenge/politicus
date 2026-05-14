@@ -161,12 +161,16 @@ app.get('/api/petitions/:pid', async c => {
 });
 
 function formatPetition(row) {
+  let payload = row.action_payload;
+  if (typeof payload === 'string') {
+    try { payload = JSON.parse(payload); } catch {}
+  }
   return {
     pid: row.pid,
     creator: row.creator,
     creator_username: row.creator_username,
     action_type: row.action_type,
-    action_payload: row.action_payload,
+    action_payload: payload,
     creation_time: row.creation_time,
     closes_at: row.closes_at,
     yay: Number(row.yay),

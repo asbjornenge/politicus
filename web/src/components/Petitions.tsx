@@ -142,9 +142,17 @@ function prettyAction(t: string) {
 function renderPayload(t: string, payload: any) {
   if (payload == null) return null;
   if (t === 'set_variable') {
-    const key = payload['1'] ?? payload[0];
-    const value = payload['2'] ?? payload[1];
+    const key = payload?.string ?? payload?.['1'] ?? payload?.[0];
+    const value = payload?.nat ?? payload?.['2'] ?? payload?.[1];
     return <code>{key} = {value}</code>;
+  }
+  if (t === 'mod_content_add' || t === 'mod_content_del') {
+    const hash = typeof payload === 'string' ? payload : payload?.bytes;
+    return <code>{hash?.slice(0, 24)}…</code>;
+  }
+  if (t === 'mod_user_add' || t === 'mod_user_del') {
+    const addr = typeof payload === 'string' ? payload : payload?.address;
+    return <code>{addr}</code>;
   }
   if (typeof payload === 'string') return <code>{payload.slice(0, 24)}…</code>;
   return <code>{JSON.stringify(payload).slice(0, 80)}</code>;
