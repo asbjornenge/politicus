@@ -63,8 +63,7 @@ export function PetitionPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg
 
   return (
     <div>
-      <Link to="/petitions" className="muted" style={{ fontSize: 13 }}>← back to petitions</Link>
-      <div className="bit" style={{ marginTop: 12 }}>
+      <div className="bit">
         <div className="meta">
           <span className="creator">{p.creator_username ?? p.creator.slice(0, 16) + '…'}</span>
           <span className={p.passed ? 'success' : p.resolved ? 'error' : ''}>{status}</span>

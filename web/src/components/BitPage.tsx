@@ -59,8 +59,7 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
 
   return (
     <div>
-      <Link to="/" className="muted" style={{ fontSize: 13 }}>← back to feed</Link>
-      <div className="bit" style={{ marginTop: 12 }}>
+      <div className="bit">
         <div className="meta">
           <span className="creator">{b.creator_username ?? b.creator.slice(0, 16) + '…'}</span>
           <span>{new Date(b.creation_time).toLocaleString()}</span>
