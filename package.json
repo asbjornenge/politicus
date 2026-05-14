@@ -7,7 +7,9 @@
   "scripts": {
     "generate-key": "node scripts/generate-keypair.mjs",
     "fund": "node scripts/fund-account.mjs",
-    "balance": "node scripts/check-balance.mjs"
+    "balance": "node scripts/check-balance.mjs",
+    "compile": "node scripts/compile.mjs",
+    "originate:variables": "node scripts/originate-variables.mjs"
   },
   "dependencies": {
     "@tacoinfra/get-tez": "^1.0.1",

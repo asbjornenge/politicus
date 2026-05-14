@@ -2,3 +2,5 @@
 .env
 .env.local
 node_modules/
+artifacts/
+.ligo/
