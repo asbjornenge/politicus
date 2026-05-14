@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import type { TezosToolkit } from '@taquito/taquito';
 import type { Config, Petition } from '../api';
 import { listPetitions } from '../api';
-import { createSetVariablePetition, votePetition, resolvePetition, isUserRegistered, registerUser } from '../tezos';
+import { createSetVariablePetition, votePetition, resolvePetition, isUserRegistered, registerUser, readVariable } from '../tezos';
+import { KERNEL_VARS, groupedKernelVars, formatValue } from '../kernelVars';
 
 export function Petitions({
   tezos,
@@ -155,10 +156,26 @@ function CreatePetition({
   tezos: TezosToolkit; cfg: Config; address: string; onCreated: () => void;
 }) {
   const [key, setKey] = useState('BitCost');
-  const [value, setValue] = useState('100000');
+  const [value, setValue] = useState('');
+  const [currentValue, setCurrentValue] = useState<bigint | null>(null);
+  const [loadingCurrent, setLoadingCurrent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [status, setStatus] = useState('');
+
+  const meta = KERNEL_VARS.find(v => v.key === key)!;
+  const grouped = groupedKernelVars();
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingCurrent(true);
+    setCurrentValue(null);
+    readVariable(tezos, cfg, key)
+      .then(v => { if (!cancelled) setCurrentValue(v); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoadingCurrent(false); });
+    return () => { cancelled = true; };
+  }, [key, tezos, cfg]);
 
   async function submit() {
     setBusy(true); setErr(''); setStatus('');
@@ -174,36 +191,55 @@ function CreatePetition({
       setStatus(`creating petition Set_variable(${key}, ${n})...`);
       await createSetVariablePetition(tezos, cfg, key, n);
       setStatus(`✓ created. indexer will pick up in a few seconds.`);
+      setValue('');
       onCreated();
     } catch (e: any) {
       setErr(e.message ?? String(e));
     } finally { setBusy(false); }
   }
 
+  const selectStyle = {
+    flex: 1,
+    background: '#0f1014',
+    border: '1px solid #2a2a32',
+    color: 'inherit' as const,
+    padding: 6,
+    borderRadius: 4,
+    font: 'inherit',
+  };
+
   return (
     <div className="compose">
       <div style={{ fontSize: 13, color: '#aaa', marginBottom: 8 }}>
-        Create petition: change a kernel variable
+        Propose a kernel-variable change
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+        <select style={selectStyle} value={key} onChange={e => setKey(e.target.value)} disabled={busy}>
+          {Object.entries(grouped).map(([group, vars]) => (
+            <optgroup key={group} label={group}>
+              {vars.map(v => (
+                <option key={v.key} value={v.key}>{v.key}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
         <input
-          style={{ flex: 1, background: '#0f1014', border: '1px solid #2a2a32', color: 'inherit', padding: 6, borderRadius: 4 }}
-          placeholder="variable key (e.g. BitCost)"
-          value={key}
-          onChange={e => setKey(e.target.value)}
-          disabled={busy}
-        />
-        <input
-          style={{ flex: 1, background: '#0f1014', border: '1px solid #2a2a32', color: 'inherit', padding: 6, borderRadius: 4 }}
-          placeholder="new value"
+          style={{ ...selectStyle, fontFamily: 'monospace' }}
+          placeholder={`new value in ${meta.unit}`}
           value={value}
           onChange={e => setValue(e.target.value)}
           disabled={busy}
         />
       </div>
+      <div style={{ fontSize: 13, color: '#aaa', lineHeight: 1.4, marginBottom: 6 }}>
+        {meta.description}
+      </div>
+      <div style={{ fontSize: 12, color: '#888', fontFamily: 'monospace', marginBottom: 8 }}>
+        current: {loadingCurrent ? '…' : currentValue !== null ? formatValue(currentValue, meta.unit) : 'unknown'}
+      </div>
       <div className="actions">
-        <span className="muted">{status || `costs PetitionUpdateVariableCost`}</span>
-        <button onClick={submit} disabled={busy || !key || !value}>
+        <span className="muted">{status || 'costs PetitionUpdateVariableCost'}</span>
+        <button onClick={submit} disabled={busy || !value}>
           {busy ? 'creating…' : 'propose'}
         </button>
       </div>
