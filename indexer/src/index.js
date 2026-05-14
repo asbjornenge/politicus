@@ -6,12 +6,13 @@ const {
   IDENTITY_REGISTRY,
   BIT_REGISTRY,
   PETITION_REGISTRY,
+  MODERATION_REGISTRY,
   POLL_INTERVAL_MS = '10000',
 } = process.env;
 
 if (!DATABASE_URL) { console.error('DATABASE_URL missing'); process.exit(1); }
-if (!IDENTITY_REGISTRY || !BIT_REGISTRY || !PETITION_REGISTRY) {
-  console.error('IDENTITY_REGISTRY, BIT_REGISTRY, or PETITION_REGISTRY missing');
+if (!IDENTITY_REGISTRY || !BIT_REGISTRY || !PETITION_REGISTRY || !MODERATION_REGISTRY) {
+  console.error('One of the *_REGISTRY env vars is missing');
   process.exit(1);
 }
 
@@ -83,6 +84,28 @@ async function applyBigmapUpdate(u, ptrs) {
         brightid_hash = EXCLUDED.brightid_hash,
         updated_at = now()
     `;
+  } else if (bigmap === ptrs.mod_content) {
+    if (action === 'remove_key') {
+      await sql`DELETE FROM moderated_content WHERE content_hash = ${key}`;
+      return;
+    }
+    if (!value) return;
+    await sql`
+      INSERT INTO moderated_content (content_hash, moderated_at)
+      VALUES (${key}, ${value})
+      ON CONFLICT (content_hash) DO UPDATE SET moderated_at = EXCLUDED.moderated_at, updated_at = now()
+    `;
+  } else if (bigmap === ptrs.mod_users) {
+    if (action === 'remove_key') {
+      await sql`DELETE FROM moderated_users WHERE address = ${key}`;
+      return;
+    }
+    if (!value) return;
+    await sql`
+      INSERT INTO moderated_users (address, moderated_at)
+      VALUES (${key}, ${value})
+      ON CONFLICT (address) DO UPDATE SET moderated_at = EXCLUDED.moderated_at, updated_at = now()
+    `;
   } else if (bigmap === ptrs.petitions) {
     if (action === 'remove_key') {
       await sql`DELETE FROM petitions WHERE pid = ${key}`;
@@ -112,7 +135,7 @@ async function applyBigmapUpdate(u, ptrs) {
 }
 
 async function pollBigmaps(ptrs) {
-  const targets = [ptrs.bits, ptrs.users, ptrs.petitions].filter(Boolean);
+  const targets = [ptrs.bits, ptrs.users, ptrs.petitions, ptrs.mod_content, ptrs.mod_users].filter(Boolean);
   if (targets.length === 0) return;
 
   while (true) {
@@ -174,8 +197,15 @@ async function main() {
   const id = await getBigmapPtrs(IDENTITY_REGISTRY);
   const br = await getBigmapPtrs(BIT_REGISTRY);
   const pr = await getBigmapPtrs(PETITION_REGISTRY);
-  const ptrs = { users: id.users, bits: br.bits, petitions: pr.petitions };
-  console.log(`  Bigmap pointers:  users=${ptrs.users} bits=${ptrs.bits} petitions=${ptrs.petitions}`);
+  const mr = await getBigmapPtrs(MODERATION_REGISTRY);
+  const ptrs = {
+    users: id.users,
+    bits: br.bits,
+    petitions: pr.petitions,
+    mod_content: mr.moderated_content,
+    mod_users: mr.moderated_users,
+  };
+  console.log(`  Bigmap pointers:`, ptrs);
 
   while (true) {
     try {

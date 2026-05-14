@@ -10,6 +10,8 @@ export type Bit = {
   creation_time: string;
   yay: number;
   nay: number;
+  content_moderated: boolean;
+  creator_moderated: boolean;
 };
 
 export type Config = {

@@ -59,6 +59,10 @@ app.post('/api/content', async c => {
 
 app.get('/api/content/:hash', async c => {
   const hash = c.req.param('hash');
+  const modCheck = await sql`SELECT 1 FROM moderated_content WHERE content_hash = ${hash}`;
+  if (modCheck.length > 0) {
+    return c.json({ error: 'moderated', hash }, 451);
+  }
   const rows = await sql`SELECT body, content_type FROM content WHERE hash = ${hash}`;
   if (rows.length === 0) return c.json({ error: 'not_found' }, 404);
   const row = rows[0];
@@ -76,19 +80,25 @@ app.get('/api/bits', async c => {
   const before = c.req.query('before');
   const rows = before
     ? await sql`
-        SELECT b.*, c.body, c.content_type, u.username, u.bio
+        SELECT b.*, c.body, c.content_type, u.username, u.bio,
+          false AS content_moderated, false AS creator_moderated
         FROM bits b
         LEFT JOIN content c ON c.hash = b.content_hash
         LEFT JOIN users u ON u.address = b.creator
         WHERE b.creation_time < ${before}
+          AND NOT EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash)
+          AND NOT EXISTS (SELECT 1 FROM moderated_users mu WHERE mu.address = b.creator)
         ORDER BY b.creation_time DESC
         LIMIT ${limit}
       `
     : await sql`
-        SELECT b.*, c.body, c.content_type, u.username, u.bio
+        SELECT b.*, c.body, c.content_type, u.username, u.bio,
+          false AS content_moderated, false AS creator_moderated
         FROM bits b
         LEFT JOIN content c ON c.hash = b.content_hash
         LEFT JOIN users u ON u.address = b.creator
+        WHERE NOT EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash)
+          AND NOT EXISTS (SELECT 1 FROM moderated_users mu WHERE mu.address = b.creator)
         ORDER BY b.creation_time DESC
         LIMIT ${limit}
       `;
@@ -182,18 +192,23 @@ function formatPetition(row) {
 }
 
 function formatBit(row) {
+  const contentModerated = Boolean(row.content_moderated);
+  const creatorModerated = Boolean(row.creator_moderated);
+  const suppressed = contentModerated || creatorModerated;
   return {
     bid: row.bid,
     creator: row.creator,
     creator_username: row.username ?? null,
     content_hash: row.content_hash,
-    content: row.body ? row.body.toString('utf8') : null,
-    content_type: row.content_type ?? null,
+    content: suppressed ? null : (row.body ? row.body.toString('utf8') : null),
+    content_type: suppressed ? null : (row.content_type ?? null),
     parent: row.parent,
     syndicate: row.syndicate,
     creation_time: row.creation_time,
     yay: Number(row.yay),
     nay: Number(row.nay),
+    content_moderated: contentModerated,
+    creator_moderated: creatorModerated,
   };
 }
 

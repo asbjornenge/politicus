@@ -77,7 +77,7 @@ export default function App() {
             address={address}
             onPosted={() => setRefreshSignal(s => s + 1)}
           />
-          <Feed tezos={tezos} cfg={cfg} refreshSignal={refreshSignal} />
+          <Feed tezos={tezos} cfg={cfg} address={address} refreshSignal={refreshSignal} />
         </>
       )}
       {view === 'petitions' && (

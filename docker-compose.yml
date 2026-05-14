@@ -42,6 +42,7 @@ services:
       IDENTITY_REGISTRY: KT1LBdKpeUNd2hq49q4keziRm431QYytyBfS
       BIT_REGISTRY: KT193vzUnno9keXoAgpCunscMUYUviREE96d
       PETITION_REGISTRY: KT1UEUHiDvszkQeRYNEexdTUgGxtfyaJ86xq
+      MODERATION_REGISTRY: KT1PRAZuSK9gGBGukrtyuUwoVojhL9G6XyQU
       POLL_INTERVAL_MS: "10000"
     depends_on:
       db:

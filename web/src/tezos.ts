@@ -132,3 +132,18 @@ export async function resolvePetition(
   await op.confirmation();
   return op.hash;
 }
+
+export async function createModContentAddPetition(
+  tezos: TezosToolkit,
+  cfg: Config,
+  contentHash: string,
+) {
+  const cost = await readVariable(tezos, cfg, 'PetitionContentModerationAddCost');
+  if (cost == null) throw new Error('PetitionContentModerationAddCost not set');
+  const c = await tezos.contract.at(cfg.contracts.PetitionRegistry);
+  const op = await c.methodsObject
+    .create_petition({ mod_content_add: contentHash })
+    .send({ amount: Number(cost), mutez: true });
+  await op.confirmation();
+  return op.hash;
+}
