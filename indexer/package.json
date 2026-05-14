@@ -1,0 +1,12 @@
+{
+  "name": "politicus-indexer",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "postgres": "^3.4.5"
+  }
+}

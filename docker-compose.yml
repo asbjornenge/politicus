@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: politicus
+      POSTGRES_PASSWORD: politicus
+      POSTGRES_DB: politicus
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db/migrations:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U politicus"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./api
+    environment:
+      DATABASE_URL: postgres://politicus:politicus@db:5432/politicus
+      PORT: 8080
+      RPC_URL: https://rpc.shadownet.teztnets.com
+      VARIABLES_ADDRESS: KT1G2ZYpHJZaTZCyRJefry77S2C1NL4pH3tB
+      TREASURY_ADDRESS: KT1KKH5KPTmYJ5NtLnShMiWHVhU4wik3Pcih
+      IDENTITY_REGISTRY: KT1XhKFrNhf52DU5gyYhkCuayYE7gtLiyQWF
+      BIT_REGISTRY: KT1SpPUSMJQe2Ybm7rDswPcddaVE16DqyVm3
+    ports:
+      - "8088:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  indexer:
+    build: ./indexer
+    environment:
+      DATABASE_URL: postgres://politicus:politicus@db:5432/politicus
+      TZKT_API: https://api.shadownet.tzkt.io
+      IDENTITY_REGISTRY: KT1XhKFrNhf52DU5gyYhkCuayYE7gtLiyQWF
+      BIT_REGISTRY: KT1SpPUSMJQe2Ybm7rDswPcddaVE16DqyVm3
+      POLL_INTERVAL_MS: "10000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data:
