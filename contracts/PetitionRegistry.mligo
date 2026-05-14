@@ -18,6 +18,10 @@
 
 type petition_action =
   | Set_variable of string * nat
+  | Mod_content_add of bytes
+  | Mod_content_del of bytes
+  | Mod_user_add of address
+  | Mod_user_del of address
 
 type petition = {
   creator       : address ;
@@ -39,12 +43,13 @@ type petition_vote = {
 }
 
 type storage = {
-  petitions         : (bytes, petition) big_map ;
-  votes             : (bytes, petition_vote) big_map ;
-  next_petition_seq : nat ;
-  identity_registry : address ;
-  variables         : address ;
-  treasury          : address ;
+  petitions           : (bytes, petition) big_map ;
+  votes               : (bytes, petition_vote) big_map ;
+  next_petition_seq   : nat ;
+  identity_registry   : address ;
+  variables           : address ;
+  treasury            : address ;
+  moderation_registry : address ;
 }
 
 (* ---- helpers ---- *)
@@ -76,14 +81,26 @@ let mutez_to_tez (n : nat) : tez = n * 1mutez
 let cost_var_for (action : petition_action) : string =
   match action with
   | Set_variable _ -> "PetitionUpdateVariableCost"
+  | Mod_content_add _ -> "PetitionContentModerationAddCost"
+  | Mod_content_del _ -> "PetitionContentModerationDelCost"
+  | Mod_user_add _ -> "PetitionUserModerationAddCost"
+  | Mod_user_del _ -> "PetitionUserModerationDelCost"
 
 let quorum_var_for (action : petition_action) : string =
   match action with
   | Set_variable _ -> "PetitionUpdateVariableQuorum"
+  | Mod_content_add _ -> "PetitionContentModerationQuorum"
+  | Mod_content_del _ -> "PetitionContentModerationQuorum"
+  | Mod_user_add _ -> "PetitionUserModerationQuorum"
+  | Mod_user_del _ -> "PetitionUserModerationQuorum"
 
 let majority_var_for (action : petition_action) : string =
   match action with
   | Set_variable _ -> "PetitionUpdateVariableMajority"
+  | Mod_content_add _ -> "PetitionContentModerationMajority"
+  | Mod_content_del _ -> "PetitionContentModerationMajority"
+  | Mod_user_add _ -> "PetitionUserModerationMajority"
+  | Mod_user_del _ -> "PetitionUserModerationMajority"
 
 (* ---- entrypoints ---- *)
 
@@ -195,10 +212,25 @@ let resolve_petition (pid : bytes) (store : storage) : operation list * storage 
   let ops : operation list = if passed then
     (match p.action with
      | Set_variable (k, v) ->
-       let var_contract : (string * nat) contract = match (Tezos.get_entrypoint_opt "%set" store.variables : (string * nat) contract option) with
-         | Some c -> c
-         | None -> failwith "VARIABLES_SET_NOT_FOUND" in
-       [Tezos.Next.Operation.transaction (k, v) 0tez var_contract])
+       let c : (string * nat) contract = match (Tezos.get_entrypoint_opt "%set" store.variables : (string * nat) contract option) with
+         | Some c -> c | None -> failwith "VARIABLES_SET_NOT_FOUND" in
+       [Tezos.Next.Operation.transaction (k, v) 0tez c]
+     | Mod_content_add h ->
+       let c : bytes contract = match (Tezos.get_entrypoint_opt "%add_content_mod" store.moderation_registry : bytes contract option) with
+         | Some c -> c | None -> failwith "MOD_EP_NOT_FOUND" in
+       [Tezos.Next.Operation.transaction h 0tez c]
+     | Mod_content_del h ->
+       let c : bytes contract = match (Tezos.get_entrypoint_opt "%del_content_mod" store.moderation_registry : bytes contract option) with
+         | Some c -> c | None -> failwith "MOD_EP_NOT_FOUND" in
+       [Tezos.Next.Operation.transaction h 0tez c]
+     | Mod_user_add u ->
+       let c : address contract = match (Tezos.get_entrypoint_opt "%add_user_mod" store.moderation_registry : address contract option) with
+         | Some c -> c | None -> failwith "MOD_EP_NOT_FOUND" in
+       [Tezos.Next.Operation.transaction u 0tez c]
+     | Mod_user_del u ->
+       let c : address contract = match (Tezos.get_entrypoint_opt "%del_user_mod" store.moderation_registry : address contract option) with
+         | Some c -> c | None -> failwith "MOD_EP_NOT_FOUND" in
+       [Tezos.Next.Operation.transaction u 0tez c])
   else
     ([] : operation list) in
 

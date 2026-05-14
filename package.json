@@ -13,9 +13,11 @@
     "originate:treasury": "node scripts/originate-treasury.mjs",
     "originate:identity": "node scripts/originate-identity.mjs",
     "originate:bit": "node scripts/originate-bit.mjs",
+    "originate:moderation": "node scripts/originate-moderation.mjs",
     "originate:petition": "node scripts/originate-petition.mjs",
     "setup-petition-test": "node scripts/setup-petition-test.mjs",
     "transfer-admin": "node scripts/transfer-variables-admin.mjs",
+    "transfer-moderation-admin": "node scripts/transfer-moderation-admin.mjs",
     "simulate-users": "node scripts/simulate-users.mjs"
   },
   "dependencies": {

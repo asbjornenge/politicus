@@ -19,10 +19,16 @@ const deployments = JSON.parse(readFileSync(join(repoRoot, 'deployments.json'), 
 const VARIABLES = deployments[network].Variables;
 
 const overrides = [
-  ['PetitionDuration', '60'],                  // 60 seconds (was 30 days)
-  ['PetitionUpdateVariableCost', '1000000'],   // 1 tez (was 500 tez)
-  ['PetitionVoteCost', '10000'],               // 0.01 tez (was 0.25 tez)
-  ['PetitionUpdateVariableQuorum', '100'],     // 1% (was 40%)  — testable with 1 user
+  ['PetitionDuration', '60'],                       // 60 seconds (was 30 days)
+  ['PetitionUpdateVariableCost', '1000000'],        // 1 tez (was 500 tez)
+  ['PetitionVoteCost', '10000'],                    // 0.01 tez (was 0.25 tez)
+  ['PetitionUpdateVariableQuorum', '100'],          // 1% (was 40%)
+  ['PetitionContentModerationAddCost', '1000000'],  // 1 tez (was 100 tez)
+  ['PetitionContentModerationDelCost', '500000'],   // 0.5 tez
+  ['PetitionUserModerationAddCost', '1000000'],     // 1 tez (was 250 tez)
+  ['PetitionUserModerationDelCost', '500000'],      // 0.5 tez
+  ['PetitionContentModerationQuorum', '100'],       // 1%
+  ['PetitionUserModerationQuorum', '100'],          // 1%
 ];
 
 const tezos = new TezosToolkit(rpcUrl);

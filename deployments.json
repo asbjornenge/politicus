@@ -2,8 +2,9 @@
   "shadownet": {
     "Treasury": "KT1KKH5KPTmYJ5NtLnShMiWHVhU4wik3Pcih",
     "IdentityRegistry": "KT1LBdKpeUNd2hq49q4keziRm431QYytyBfS",
-    "Variables": "KT19VGiw5XPZq5nu7f8xunabGvs6zhe7AdXh",
-    "BitRegistry": "KT1V6CeJkFFkgXU2iUr8T5wVuVzgxGJpjoCy",
-    "PetitionRegistry": "KT1JgMGKNNnxZUZHSApEpe3itZKgHchPfN6b"
+    "ModerationRegistry": "KT1PRAZuSK9gGBGukrtyuUwoVojhL9G6XyQU",
+    "Variables": "KT1CM56B5QdrVnBPc2RRc5KC9YeUJyxQGeWU",
+    "BitRegistry": "KT193vzUnno9keXoAgpCunscMUYUviREE96d",
+    "PetitionRegistry": "KT1UEUHiDvszkQeRYNEexdTUgGxtfyaJ86xq"
   }
 }
