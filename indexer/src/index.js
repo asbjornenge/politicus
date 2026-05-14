@@ -5,12 +5,13 @@ const {
   TZKT_API = 'https://api.shadownet.tzkt.io',
   IDENTITY_REGISTRY,
   BIT_REGISTRY,
+  PETITION_REGISTRY,
   POLL_INTERVAL_MS = '10000',
 } = process.env;
 
 if (!DATABASE_URL) { console.error('DATABASE_URL missing'); process.exit(1); }
-if (!IDENTITY_REGISTRY || !BIT_REGISTRY) {
-  console.error('IDENTITY_REGISTRY or BIT_REGISTRY missing');
+if (!IDENTITY_REGISTRY || !BIT_REGISTRY || !PETITION_REGISTRY) {
+  console.error('IDENTITY_REGISTRY, BIT_REGISTRY, or PETITION_REGISTRY missing');
   process.exit(1);
 }
 
@@ -82,11 +83,36 @@ async function applyBigmapUpdate(u, ptrs) {
         brightid_hash = EXCLUDED.brightid_hash,
         updated_at = now()
     `;
+  } else if (bigmap === ptrs.petitions) {
+    if (action === 'remove_key') {
+      await sql`DELETE FROM petitions WHERE pid = ${key}`;
+      return;
+    }
+    if (!value) return;
+    const a = value.action ?? {};
+    const actionType = Object.keys(a)[0] ?? 'unknown';
+    const actionPayload = a[actionType] ?? null;
+    await sql`
+      INSERT INTO petitions (pid, creator, action_type, action_payload, creation_time, closes_at, yay, nay, unique_voters, resolved, passed)
+      VALUES (
+        ${key}, ${value.creator}, ${actionType}, ${JSON.stringify(actionPayload)}::jsonb,
+        ${value.creation_time}, ${value.closes_at},
+        ${value.yay}, ${value.nay}, ${value.unique_voters},
+        ${value.resolved}, ${value.passed}
+      )
+      ON CONFLICT (pid) DO UPDATE SET
+        yay = EXCLUDED.yay,
+        nay = EXCLUDED.nay,
+        unique_voters = EXCLUDED.unique_voters,
+        resolved = EXCLUDED.resolved,
+        passed = EXCLUDED.passed,
+        updated_at = now()
+    `;
   }
 }
 
 async function pollBigmaps(ptrs) {
-  const targets = [ptrs.bits, ptrs.users].filter(Boolean);
+  const targets = [ptrs.bits, ptrs.users, ptrs.petitions].filter(Boolean);
   if (targets.length === 0) return;
 
   while (true) {
@@ -147,8 +173,9 @@ async function main() {
 
   const id = await getBigmapPtrs(IDENTITY_REGISTRY);
   const br = await getBigmapPtrs(BIT_REGISTRY);
-  const ptrs = { users: id.users, bits: br.bits };
-  console.log(`  Bigmap pointers:  users=${ptrs.users} bits=${ptrs.bits}`);
+  const pr = await getBigmapPtrs(PETITION_REGISTRY);
+  const ptrs = { users: id.users, bits: br.bits, petitions: pr.petitions };
+  console.log(`  Bigmap pointers:  users=${ptrs.users} bits=${ptrs.bits} petitions=${ptrs.petitions}`);
 
   while (true) {
     try {

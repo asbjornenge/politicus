@@ -19,7 +19,24 @@ export type Config = {
     Treasury: string;
     IdentityRegistry: string;
     BitRegistry: string;
+    PetitionRegistry: string;
+    ModerationRegistry: string;
   };
+};
+
+export type Petition = {
+  pid: string;
+  creator: string;
+  creator_username: string | null;
+  action_type: string;
+  action_payload: any;
+  creation_time: string;
+  closes_at: string;
+  yay: number;
+  nay: number;
+  unique_voters: number;
+  resolved: boolean;
+  passed: boolean;
 };
 
 export async function getConfig(): Promise<Config> {
@@ -42,6 +59,12 @@ export async function listBits(): Promise<Bit[]> {
   const r = await fetch('/api/bits');
   const { bits } = await r.json();
   return bits;
+}
+
+export async function listPetitions(): Promise<Petition[]> {
+  const r = await fetch('/api/petitions');
+  const { petitions } = await r.json();
+  return petitions;
 }
 
 export async function getUser(address: string) {

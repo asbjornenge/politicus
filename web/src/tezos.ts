@@ -87,3 +87,48 @@ export async function voteBit(
   await op.confirmation();
   return op.hash;
 }
+
+export async function createSetVariablePetition(
+  tezos: TezosToolkit,
+  cfg: Config,
+  key: string,
+  value: number,
+) {
+  const cost = await readVariable(tezos, cfg, 'PetitionUpdateVariableCost');
+  if (cost == null) throw new Error('PetitionUpdateVariableCost not set');
+  const c = await tezos.contract.at(cfg.contracts.PetitionRegistry);
+  const op = await c.methodsObject
+    .create_petition({ set_variable: { 0: key, 1: String(value) } })
+    .send({ amount: Number(cost), mutez: true });
+  await op.confirmation();
+  return op.hash;
+}
+
+export async function votePetition(
+  tezos: TezosToolkit,
+  cfg: Config,
+  pid: string,
+  direction: boolean,
+  votes: number,
+) {
+  const unitCost = await readVariable(tezos, cfg, 'PetitionVoteCost');
+  if (unitCost == null) throw new Error('PetitionVoteCost not set');
+  const total = Number(unitCost) * votes * votes;
+  const c = await tezos.contract.at(cfg.contracts.PetitionRegistry);
+  const op = await c.methodsObject
+    .vote_petition({ 0: pid, 1: direction, 2: String(votes) })
+    .send({ amount: total, mutez: true });
+  await op.confirmation();
+  return op.hash;
+}
+
+export async function resolvePetition(
+  tezos: TezosToolkit,
+  cfg: Config,
+  pid: string,
+) {
+  const c = await tezos.contract.at(cfg.contracts.PetitionRegistry);
+  const op = await c.methodsObject.resolve_petition(pid).send();
+  await op.confirmation();
+  return op.hash;
+}

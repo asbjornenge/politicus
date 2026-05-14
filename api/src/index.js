@@ -12,6 +12,8 @@ const {
   TREASURY_ADDRESS,
   IDENTITY_REGISTRY,
   BIT_REGISTRY,
+  PETITION_REGISTRY,
+  MODERATION_REGISTRY,
 } = process.env;
 
 if (!DATABASE_URL) { console.error('DATABASE_URL missing'); process.exit(1); }
@@ -30,6 +32,8 @@ app.get('/api/config', c => c.json({
     Treasury: TREASURY_ADDRESS,
     IdentityRegistry: IDENTITY_REGISTRY,
     BitRegistry: BIT_REGISTRY,
+    PetitionRegistry: PETITION_REGISTRY,
+    ModerationRegistry: MODERATION_REGISTRY,
   },
 }));
 
@@ -129,6 +133,49 @@ app.get('/api/users/:address', async c => {
   if (rows.length === 0) return c.json({ error: 'not_found' }, 404);
   return c.json({ user: rows[0] });
 });
+
+// --- Petitions ---
+
+app.get('/api/petitions', async c => {
+  const limit = Math.min(Number(c.req.query('limit') ?? '50'), 200);
+  const rows = await sql`
+    SELECT p.*, u.username AS creator_username
+    FROM petitions p
+    LEFT JOIN users u ON u.address = p.creator
+    ORDER BY p.creation_time DESC
+    LIMIT ${limit}
+  `;
+  return c.json({ petitions: rows.map(formatPetition) });
+});
+
+app.get('/api/petitions/:pid', async c => {
+  const pid = c.req.param('pid');
+  const rows = await sql`
+    SELECT p.*, u.username AS creator_username
+    FROM petitions p
+    LEFT JOIN users u ON u.address = p.creator
+    WHERE p.pid = ${pid}
+  `;
+  if (rows.length === 0) return c.json({ error: 'not_found' }, 404);
+  return c.json({ petition: formatPetition(rows[0]) });
+});
+
+function formatPetition(row) {
+  return {
+    pid: row.pid,
+    creator: row.creator,
+    creator_username: row.creator_username,
+    action_type: row.action_type,
+    action_payload: row.action_payload,
+    creation_time: row.creation_time,
+    closes_at: row.closes_at,
+    yay: Number(row.yay),
+    nay: Number(row.nay),
+    unique_voters: Number(row.unique_voters),
+    resolved: row.resolved,
+    passed: row.passed,
+  };
+}
 
 function formatBit(row) {
   return {

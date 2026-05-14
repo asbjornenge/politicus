@@ -26,6 +26,8 @@ services:
       TREASURY_ADDRESS: KT1KKH5KPTmYJ5NtLnShMiWHVhU4wik3Pcih
       IDENTITY_REGISTRY: KT1LBdKpeUNd2hq49q4keziRm431QYytyBfS
       BIT_REGISTRY: KT193vzUnno9keXoAgpCunscMUYUviREE96d
+      PETITION_REGISTRY: KT1UEUHiDvszkQeRYNEexdTUgGxtfyaJ86xq
+      MODERATION_REGISTRY: KT1PRAZuSK9gGBGukrtyuUwoVojhL9G6XyQU
     ports:
       - "8088:8080"
     depends_on:
@@ -39,6 +41,7 @@ services:
       TZKT_API: https://api.shadownet.tzkt.io
       IDENTITY_REGISTRY: KT1LBdKpeUNd2hq49q4keziRm431QYytyBfS
       BIT_REGISTRY: KT193vzUnno9keXoAgpCunscMUYUviREE96d
+      PETITION_REGISTRY: KT1UEUHiDvszkQeRYNEexdTUgGxtfyaJ86xq
       POLL_INTERVAL_MS: "10000"
     depends_on:
       db:
