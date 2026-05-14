@@ -15,7 +15,8 @@
     "originate:bit": "node scripts/originate-bit.mjs",
     "originate:petition": "node scripts/originate-petition.mjs",
     "setup-petition-test": "node scripts/setup-petition-test.mjs",
-    "transfer-admin": "node scripts/transfer-variables-admin.mjs"
+    "transfer-admin": "node scripts/transfer-variables-admin.mjs",
+    "simulate-users": "node scripts/simulate-users.mjs"
   },
   "dependencies": {
     "@tacoinfra/get-tez": "^1.0.1",

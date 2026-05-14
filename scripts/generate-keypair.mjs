@@ -1,5 +1,5 @@
 import { InMemorySigner } from '@taquito/signer';
-import { b58cencode, prefix } from '@taquito/utils';
+import { b58Encode, PrefixV2 } from '@taquito/utils';
 import { randomBytes } from 'node:crypto';
 import { writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -18,7 +18,7 @@ if (existsSync(envPath)) {
 }
 
 const seed = randomBytes(32);
-const sk = b58cencode(seed, prefix.edsk2);
+const sk = b58Encode(seed, PrefixV2.Ed25519Seed);
 
 const signer = await InMemorySigner.fromSecretKey(sk);
 const pkh = await signer.publicKeyHash();
