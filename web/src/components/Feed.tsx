@@ -5,6 +5,14 @@ import { listBits } from '../api';
 import type { Bit, Config } from '../api';
 import { voteBit, createModContentAddPetition, isUserRegistered, registerUser } from '../tezos';
 
+const PREVIEW_CHARS = 280;
+
+function ContentPreview({ text }: { text: string; bid: string }) {
+  if (text.length <= PREVIEW_CHARS) return <>{text}</>;
+  const cut = text.slice(0, PREVIEW_CHARS).replace(/\s+\S*$/, '');
+  return <>{cut}…</>;
+}
+
 export function Feed({ tezos, cfg, address, refreshSignal }: { tezos: TezosToolkit; cfg: Config; address: string; refreshSignal: number }) {
   const [bits, setBits] = useState<Bit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,7 +89,9 @@ export function Feed({ tezos, cfg, address, refreshSignal }: { tezos: TezosToolk
               <span className="muted">⚑ content moderated — bytes withheld by indexer (hash: {b.content_hash.slice(0, 12)}…)</span>
             ) : b.creator_moderated ? (
               <span className="muted">⚑ creator moderated — content withheld</span>
-            ) : b.content ?? (
+            ) : b.content ? (
+              <ContentPreview text={b.content} bid={b.bid} />
+            ) : (
               <span className="muted">(content not yet uploaded — hash: {b.content_hash.slice(0, 12)}…)</span>
             )}
           </div>
