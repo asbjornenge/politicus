@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { TezosToolkit } from '@taquito/taquito';
 import type { Config, Petition } from '../api';
 import { listPetitions } from '../api';
@@ -123,7 +124,14 @@ function PetitionRow({
         )}
         {canResolve && <button onClick={onResolve} disabled={busy}>{busy ? '…' : 'resolve'}</button>}
         {isOpen && <span className="muted">closes in ~{minsLeft}m</span>}
-        <span className="muted">{p.pid.slice(0, 10)}…</span>
+        <Link
+          to={`/petition/${p.pid}`}
+          className="muted"
+          style={{ fontFamily: 'monospace', textDecoration: 'none' }}
+          title="open petition page"
+        >
+          {p.pid.slice(0, 10)}…
+        </Link>
       </div>
     </div>
   );

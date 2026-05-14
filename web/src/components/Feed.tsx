@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { TezosToolkit } from '@taquito/taquito';
 import { listBits } from '../api';
 import type { Bit, Config } from '../api';
@@ -9,15 +10,6 @@ export function Feed({ tezos, cfg, address, refreshSignal }: { tezos: TezosToolk
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-
-  function toggleExpand(bid: string) {
-    setExpanded(prev => {
-      const next = new Set(prev);
-      if (next.has(bid)) next.delete(bid); else next.add(bid);
-      return next;
-    });
-  }
 
   async function reload() {
     setLoading(true);
@@ -97,14 +89,14 @@ export function Feed({ tezos, cfg, address, refreshSignal }: { tezos: TezosToolk
             <button onClick={() => vote(b.bid, true)} disabled={busy === b.bid}>↑ {b.yay}</button>
             <button onClick={() => vote(b.bid, false)} disabled={busy === b.bid} className="secondary">↓ {b.nay}</button>
             <button onClick={() => moderate(b)} disabled={busy === b.bid} className="secondary" title="propose to moderate this bit">⚑</button>
-            <span
+            <Link
+              to={`/bit/${b.bid}`}
               className="muted"
-              style={{ cursor: 'pointer', fontFamily: 'monospace', wordBreak: 'break-all' }}
-              onClick={() => toggleExpand(b.bid)}
-              title={expanded.has(b.bid) ? 'click to collapse' : 'click to show full hash'}
+              style={{ fontFamily: 'monospace', textDecoration: 'none' }}
+              title="open bit page"
             >
-              {expanded.has(b.bid) ? b.bid : `${b.bid.slice(0, 12)}…`}
-            </span>
+              {b.bid.slice(0, 12)}…
+            </Link>
           </div>
         </div>
       ))}

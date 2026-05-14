@@ -108,7 +108,9 @@ app.get('/api/bits', async c => {
 app.get('/api/bits/:bid', async c => {
   const bid = c.req.param('bid');
   const rows = await sql`
-    SELECT b.*, c.body, c.content_type, u.username, u.bio
+    SELECT b.*, c.body, c.content_type, u.username, u.bio,
+      EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash) AS content_moderated,
+      EXISTS (SELECT 1 FROM moderated_users mu WHERE mu.address = b.creator) AS creator_moderated
     FROM bits b
     LEFT JOIN content c ON c.hash = b.content_hash
     LEFT JOIN users u ON u.address = b.creator
@@ -117,7 +119,9 @@ app.get('/api/bits/:bid', async c => {
   if (rows.length === 0) return c.json({ error: 'not_found' }, 404);
 
   const replies = await sql`
-    SELECT b.*, c.body, c.content_type, u.username, u.bio
+    SELECT b.*, c.body, c.content_type, u.username, u.bio,
+      EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash) AS content_moderated,
+      EXISTS (SELECT 1 FROM moderated_users mu WHERE mu.address = b.creator) AS creator_moderated
     FROM bits b
     LEFT JOIN content c ON c.hash = b.content_hash
     LEFT JOIN users u ON u.address = b.creator

@@ -63,6 +63,25 @@ export async function listBits(): Promise<Bit[]> {
   return bits;
 }
 
+export type BitDetail = {
+  bit: Bit;
+  replies: Bit[];
+  votes: Array<{ voter: string; direction: boolean; votes: number; vote_time: string }>;
+};
+
+export async function getBit(bid: string): Promise<BitDetail | null> {
+  const r = await fetch(`/api/bits/${bid}`);
+  if (!r.ok) return null;
+  return r.json();
+}
+
+export async function getPetition(pid: string): Promise<Petition | null> {
+  const r = await fetch(`/api/petitions/${pid}`);
+  if (!r.ok) return null;
+  const { petition } = await r.json();
+  return petition;
+}
+
 export async function listPetitions(): Promise<Petition[]> {
   const r = await fetch('/api/petitions');
   const { petitions } = await r.json();
