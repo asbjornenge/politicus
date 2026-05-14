@@ -25,6 +25,7 @@ type user = {
 type storage = {
   users         : (address, user) big_map ;
   brightid_used : (bytes, address) big_map ;
+  total_users   : nat ;
 }
 
 [@entry]
@@ -36,7 +37,8 @@ let register (params : bytes * string * string) (store : storage) : operation li
   let u : user = { username = username ; bio = bio ; brightid_hash = brightid_hash } in
   ([] : operation list),
   { users = Big_map.update caller (Some u) store.users ;
-    brightid_used = Big_map.update brightid_hash (Some caller) store.brightid_used }
+    brightid_used = Big_map.update brightid_hash (Some caller) store.brightid_used ;
+    total_users = store.total_users + 1n }
 
 [@entry]
 let update_profile (params : string * string) (store : storage) : operation list * storage =
@@ -55,9 +57,16 @@ let deregister (() : unit) (store : storage) : operation list * storage =
   let u : user = match Big_map.find_opt caller store.users with
     | Some existing -> existing
     | None -> failwith "NOT_REGISTERED" in
+  let new_total = match is_nat (store.total_users - 1n) with
+    | Some n -> n
+    | None -> 0n in
   ([] : operation list),
   { users = Big_map.update caller (None : user option) store.users ;
-    brightid_used = Big_map.update u.brightid_hash (None : address option) store.brightid_used }
+    brightid_used = Big_map.update u.brightid_hash (None : address option) store.brightid_used ;
+    total_users = new_total }
+
+[@view]
+let count_users (() : unit) (store : storage) : nat = store.total_users
 
 [@view]
 let is_registered (addr : address) (store : storage) : bool =

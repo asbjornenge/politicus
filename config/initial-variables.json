@@ -26,5 +26,7 @@
 
   "TreasuryFee": "300",
   "BitNFTPrimaryFee": "250",
-  "BitNFTSecondaryFee": "50"
+  "BitNFTSecondaryFee": "50",
+
+  "BootstrapUserThreshold": "200"
 }

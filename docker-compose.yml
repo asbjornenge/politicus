@@ -22,10 +22,10 @@ services:
       DATABASE_URL: postgres://politicus:politicus@db:5432/politicus
       PORT: 8080
       RPC_URL: https://rpc.shadownet.teztnets.com
-      VARIABLES_ADDRESS: KT1G2ZYpHJZaTZCyRJefry77S2C1NL4pH3tB
+      VARIABLES_ADDRESS: KT19VGiw5XPZq5nu7f8xunabGvs6zhe7AdXh
       TREASURY_ADDRESS: KT1KKH5KPTmYJ5NtLnShMiWHVhU4wik3Pcih
-      IDENTITY_REGISTRY: KT1XhKFrNhf52DU5gyYhkCuayYE7gtLiyQWF
-      BIT_REGISTRY: KT1SpPUSMJQe2Ybm7rDswPcddaVE16DqyVm3
+      IDENTITY_REGISTRY: KT1LBdKpeUNd2hq49q4keziRm431QYytyBfS
+      BIT_REGISTRY: KT1V6CeJkFFkgXU2iUr8T5wVuVzgxGJpjoCy
     ports:
       - "8088:8080"
     depends_on:
@@ -37,8 +37,8 @@ services:
     environment:
       DATABASE_URL: postgres://politicus:politicus@db:5432/politicus
       TZKT_API: https://api.shadownet.tzkt.io
-      IDENTITY_REGISTRY: KT1XhKFrNhf52DU5gyYhkCuayYE7gtLiyQWF
-      BIT_REGISTRY: KT1SpPUSMJQe2Ybm7rDswPcddaVE16DqyVm3
+      IDENTITY_REGISTRY: KT1LBdKpeUNd2hq49q4keziRm431QYytyBfS
+      BIT_REGISTRY: KT1V6CeJkFFkgXU2iUr8T5wVuVzgxGJpjoCy
       POLL_INTERVAL_MS: "10000"
     depends_on:
       db:

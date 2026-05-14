@@ -37,16 +37,26 @@ tezos.setSignerProvider(await InMemorySigner.fromSecretKey(POLITICUS_PRIVATE_KEY
 
 let addr = deployments[network]?.Variables;
 
+const identityRegistry = deployments[network]?.IdentityRegistry;
+
 if (addr) {
   console.log(`Variables already deployed at ${addr} (from deployments.json). Skipping origination.`);
 } else {
+  if (!identityRegistry) {
+    console.error('IdentityRegistry must be deployed first (Variables reads count_users from it).');
+    process.exit(1);
+  }
   console.log(`Originating Variables to ${rpcUrl}`);
-  console.log(`  admin = ${POLITICUS_ADDRESS}`);
+  console.log(`  admin             = ${POLITICUS_ADDRESS}`);
+  console.log(`  bootstrap_admin   = ${POLITICUS_ADDRESS}`);
+  console.log(`  identity_registry = ${identityRegistry}`);
   const op = await tezos.contract.originate({
     code,
     storage: {
       values: new MichelsonMap(),
       admin: POLITICUS_ADDRESS,
+      bootstrap_admin: POLITICUS_ADDRESS,
+      identity_registry: identityRegistry,
     },
   });
   console.log(`Origination op: ${op.hash}`);
