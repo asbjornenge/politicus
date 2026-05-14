@@ -30,6 +30,7 @@ POLITICUS_PRIVATE_KEY=${sk}
 POLITICUS_PUBLIC_KEY=${pk}
 POLITICUS_ADDRESS=${pkh}
 POLITICUS_FAUCET_URL=https://faucet.shadownet.teztnets.com
+POLITICUS_RPC_URL=https://rpc.shadownet.teztnets.com
 POLITICUS_NETWORK=shadownet
 `;
 

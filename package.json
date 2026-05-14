@@ -6,11 +6,13 @@
   "description": "Curious Politicus — dev tooling",
   "scripts": {
     "generate-key": "node scripts/generate-keypair.mjs",
-    "fund": "node scripts/fund-account.mjs"
+    "fund": "node scripts/fund-account.mjs",
+    "balance": "node scripts/check-balance.mjs"
   },
   "dependencies": {
     "@tacoinfra/get-tez": "^1.0.1",
     "@taquito/signer": "^20.1.0",
+    "@taquito/taquito": "^20.1.0",
     "@taquito/utils": "^20.1.0",
     "dotenv": "^16.4.5"
   }
