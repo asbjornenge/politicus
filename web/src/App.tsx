@@ -6,6 +6,7 @@ import { Feed } from './components/Feed';
 import { Petitions } from './components/Petitions';
 import { BitPage } from './components/BitPage';
 import { PetitionPage } from './components/PetitionPage';
+import { ProfilePage } from './components/ProfilePage';
 import { WalletGate } from './components/WalletGate';
 import { getConfig } from './api';
 import type { Config } from './api';
@@ -84,6 +85,7 @@ export default function App() {
         <Route path="/petitions" element={<Petitions tezos={tezos} cfg={cfg} address={address} />} />
         <Route path="/bit/:bid" element={<BitPage tezos={tezos} cfg={cfg} address={address} />} />
         <Route path="/petition/:pid" element={<PetitionPage tezos={tezos} cfg={cfg} address={address} />} />
+        <Route path="/user/:address" element={<ProfilePage tezos={tezos} cfg={cfg} address={address} />} />
       </Routes>
     </HashRouter>
   );

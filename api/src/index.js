@@ -143,9 +143,24 @@ app.get('/api/bits/:bid', async c => {
 
 app.get('/api/users/:address', async c => {
   const address = c.req.param('address');
-  const rows = await sql`SELECT * FROM users WHERE address = ${address}`;
-  if (rows.length === 0) return c.json({ error: 'not_found' }, 404);
-  return c.json({ user: rows[0] });
+  const userRows = await sql`SELECT * FROM users WHERE address = ${address}`;
+  if (userRows.length === 0) return c.json({ error: 'not_found' }, 404);
+  const moderated = await sql`SELECT 1 FROM moderated_users WHERE address = ${address}`;
+  const bitRows = await sql`
+    SELECT b.*, c.body, c.content_type, u.username, u.bio,
+      EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash) AS content_moderated,
+      EXISTS (SELECT 1 FROM moderated_users mu WHERE mu.address = b.creator) AS creator_moderated
+    FROM bits b
+    LEFT JOIN content c ON c.hash = b.content_hash
+    LEFT JOIN users u ON u.address = b.creator
+    WHERE b.creator = ${address}
+    ORDER BY b.creation_time DESC
+    LIMIT 50
+  `;
+  return c.json({
+    user: { ...userRows[0], moderated: moderated.length > 0 },
+    bits: bitRows.map(formatBit),
+  });
 });
 
 // --- Petitions ---

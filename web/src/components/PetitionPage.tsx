@@ -65,7 +65,9 @@ export function PetitionPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg
     <div>
       <div className="bit">
         <div className="meta">
-          <span className="creator">{p.creator_username ?? p.creator.slice(0, 16) + '…'}</span>
+          <Link to={`/user/${p.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
+            {p.creator_username ?? p.creator.slice(0, 16) + '…'}
+          </Link>
           <span className={p.passed ? 'success' : p.resolved ? 'error' : ''}>{status}</span>
         </div>
         <div className="content" style={{ fontSize: 16 }}>

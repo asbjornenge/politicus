@@ -9,11 +9,15 @@ export function Compose({
   cfg,
   address,
   onPosted,
+  parent,
+  onCancel,
 }: {
   tezos: TezosToolkit;
   cfg: Config;
   address: string;
   onPosted: () => void;
+  parent?: string;
+  onCancel?: () => void;
 }) {
   const [text, setText] = useState('');
   const [status, setStatus] = useState('');
@@ -35,7 +39,7 @@ export function Compose({
 
       const cost = await readVariable(tezos, cfg, 'BitCost');
       setStatus(`creating Bit on-chain (${cost} mutez)...`);
-      const opHash = await createBit(tezos, cfg, hash);
+      const opHash = await createBit(tezos, cfg, hash, parent ?? null);
       setStatus(`✓ posted (${opHash.slice(0, 12)}…). indexer will pick it up in a few seconds.`);
       setText('');
       onPosted();
@@ -49,16 +53,21 @@ export function Compose({
   return (
     <div className="compose">
       <textarea
-        placeholder="post a bit..."
+        placeholder={parent ? 'reply...' : 'post a bit...'}
         value={text}
         onChange={e => setText(e.target.value)}
         disabled={busy}
       />
       <div className="actions">
         <span className="muted">{status || `${text.length} chars`}</span>
-        <button onClick={post} disabled={busy || text.length === 0}>
-          {busy ? 'posting…' : 'post'}
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {onCancel && (
+            <button onClick={onCancel} disabled={busy} className="secondary">cancel</button>
+          )}
+          <button onClick={post} disabled={busy || text.length === 0}>
+            {busy ? 'posting…' : (parent ? 'reply' : 'post')}
+          </button>
+        </div>
       </div>
       {err && <div className="error">{err}</div>}
     </div>

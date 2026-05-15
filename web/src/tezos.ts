@@ -43,6 +43,19 @@ export async function registerUser(
   return op.hash;
 }
 
+export async function updateProfile(
+  tezos: TezosToolkit,
+  cfg: Config,
+  opts: { username: string; bio: string },
+) {
+  const c = await tezos.contract.at(cfg.contracts.IdentityRegistry);
+  const op = await c.methodsObject
+    .update_profile({ 0: opts.username, 1: opts.bio })
+    .send();
+  await op.confirmation();
+  return op.hash;
+}
+
 export async function readVariable(tezos: TezosToolkit, cfg: Config, key: string): Promise<bigint | null> {
   const c = await tezos.contract.at(cfg.contracts.Variables);
   const result: any = await c.contractViews.get(key).executeView({ viewCaller: cfg.contracts.Variables });

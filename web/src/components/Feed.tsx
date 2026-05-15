@@ -79,9 +79,9 @@ export function Feed({ tezos, cfg, address, refreshSignal }: { tezos: TezosToolk
       {bits.map(b => (
         <div key={b.bid} className="bit">
           <div className="meta">
-            <span className="creator">
+            <Link to={`/user/${b.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
               {b.creator_username ?? b.creator.slice(0, 12) + '…'}
-            </span>
+            </Link>
             <span>{new Date(b.creation_time).toLocaleString()}</span>
           </div>
           <div className="content">

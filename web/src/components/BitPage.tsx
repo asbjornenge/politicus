@@ -4,6 +4,7 @@ import type { TezosToolkit } from '@taquito/taquito';
 import type { Config, BitDetail } from '../api';
 import { getBit } from '../api';
 import { voteBit, createModContentAddPetition, isUserRegistered, registerUser } from '../tezos';
+import { Compose } from './Compose';
 
 export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config; address: string }) {
   const { bid } = useParams<{ bid: string }>();
@@ -12,6 +13,7 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [notice, setNotice] = useState('');
+  const [replying, setReplying] = useState(false);
 
   async function reload() {
     if (!bid) return;
@@ -61,7 +63,9 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
     <div>
       <div className="bit">
         <div className="meta">
-          <span className="creator">{b.creator_username ?? b.creator.slice(0, 16) + '…'}</span>
+          <Link to={`/user/${b.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
+            {b.creator_username ?? b.creator.slice(0, 16) + '…'}
+          </Link>
           <span>{new Date(b.creation_time).toLocaleString()}</span>
         </div>
         <div className="content" style={{ fontSize: 16 }}>
@@ -76,6 +80,7 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
         <div className="footer">
           <button onClick={() => vote(true)} disabled={busy}>↑ {b.yay}</button>
           <button onClick={() => vote(false)} disabled={busy} className="secondary">↓ {b.nay}</button>
+          <button onClick={() => setReplying(r => !r)} disabled={busy} className="secondary">reply</button>
           <button onClick={moderate} disabled={busy} className="secondary" title="propose to moderate this bit">⚑</button>
         </div>
         <div className="muted" style={{ fontSize: 12, fontFamily: 'monospace', marginTop: 12, lineHeight: 1.5, wordBreak: 'break-all' }}>
@@ -90,23 +95,38 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
         {err && <div className="error" style={{ marginTop: 10 }}>{err}</div>}
       </div>
 
+      {replying && (
+        <div style={{ marginTop: 16 }}>
+          <Compose
+            tezos={tezos}
+            cfg={cfg}
+            address={address}
+            parent={b.bid}
+            onPosted={() => { setReplying(false); reload(); }}
+            onCancel={() => setReplying(false)}
+          />
+        </div>
+      )}
+
       {data.replies.length > 0 && (
         <>
           <h3 style={{ fontSize: 14, color: '#888', marginTop: 24, marginBottom: 8 }}>
             {data.replies.length} repl{data.replies.length === 1 ? 'y' : 'ies'}
           </h3>
           {data.replies.map(r => (
-            <Link key={r.bid} to={`/bit/${r.bid}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-              <div className="bit">
-                <div className="meta">
-                  <span className="creator">{r.creator_username ?? r.creator.slice(0, 12) + '…'}</span>
-                  <span>{new Date(r.creation_time).toLocaleString()}</span>
-                </div>
-                <div className="content">
-                  {r.content_moderated ? <span className="muted">⚑ moderated</span> : r.content ?? <span className="muted">no content</span>}
-                </div>
+            <div key={r.bid} className="bit">
+              <div className="meta">
+                <Link to={`/user/${r.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
+                  {r.creator_username ?? r.creator.slice(0, 12) + '…'}
+                </Link>
+                <Link to={`/bit/${r.bid}`} className="muted" style={{ textDecoration: 'none' }}>
+                  {new Date(r.creation_time).toLocaleString()}
+                </Link>
               </div>
-            </Link>
+              <div className="content">
+                {r.content_moderated ? <span className="muted">⚑ moderated</span> : r.content ?? <span className="muted">no content</span>}
+              </div>
+            </div>
           ))}
         </>
       )}

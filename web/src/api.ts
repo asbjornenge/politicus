@@ -88,9 +88,16 @@ export async function listPetitions(): Promise<Petition[]> {
   return petitions;
 }
 
-export async function getUser(address: string) {
+export type User = {
+  address: string;
+  username: string;
+  bio: string;
+  brightid_hash: string;
+  moderated: boolean;
+};
+
+export async function getUser(address: string): Promise<{ user: User; bits: Bit[] } | null> {
   const r = await fetch(`/api/users/${address}`);
   if (!r.ok) return null;
-  const { user } = await r.json();
-  return user as { address: string; username: string; bio: string; brightid_hash: string };
+  return r.json();
 }
