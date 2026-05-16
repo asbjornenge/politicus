@@ -155,19 +155,18 @@ A Petiton is a request to change some aspect of CP. There are a few different ty
 
 ```
 * PID           - hash(content)
-* Type          - ENUM 
+* Type          - ENUM
                 (
-                    + MOD_SYNDICATE_ADD - Add ModerationEntry for a Syndicate 
-                    + MOD_SYNDICATE_DEL - Del ModerationEntry for a Syndicate
-                    + MOD_CONTENT_ADD   - Add ModerationEntry for a piece of content
-                    + MOD_CONTENT_DEL   - Del ModerationEntry for a piece of content
-                    + MOD_USER_ADD      - Add ModerationEntry for a User
-                    + MOD_USER_DEL      - Del ModerationEntry for a User
-                    + REM_SYNDICATE     - Remove a Syndicate (and all their Bits)
-                    + REM_CONTENT       - Remove a piece of content
-                    + REM_USER          - Remove a User (and all their Bits)
-                    + VARIABLES         - Modify variable(s)
-                    + KERNEL            - Update kernel
+                    + VARIABLES         - Modify a kernel variable           [implemented]
+                    + MOD_CONTENT_ADD   - Add ModerationEntry for content    [implemented]
+                    + MOD_CONTENT_DEL   - Del ModerationEntry for content    [implemented]
+                    + MOD_USER_ADD      - Add ModerationEntry for a User     [implemented]
+                    + MOD_USER_DEL      - Del ModerationEntry for a User     [implemented]
+                    + REM_CONTENT       - Remove content                     [deferred — equivalent to MOD_CONTENT_ADD in current design]
+                    + REM_USER          - Remove a User                      [deferred — equivalent to MOD_USER_ADD]
+                    + MOD_SYNDICATE_*   - Block/unblock a Syndicate          [deferred — requires SyndicateRegistry]
+                    + REM_SYNDICATE     - Remove a Syndicate                 [deferred]
+                    + KERNEL            - Replace kernel contract code       [deferred — proxy/upgrade pattern not designed yet]
                 )
 * Creator       - PublicKey
 * Content       - <JSON_MATCHING_ENUM> 
@@ -232,7 +231,20 @@ The different variables in the initial kernel / constitution.
 * TreasuryAddress                           - Address (initial: platform creator)
 * BitNFTPrimaryFee                          - % 2.5  (share of BitNFT primary sales to Treasury)
 * BitNFTSecondaryFee                        - % 0.5  (share of BitNFT secondary sales to Treasury)
+* BootstrapUserThreshold                    - n 200  (see Bootstrap below)
 ```
+
+## Bootstrap
+
+Politicus is meant to be community-controlled, but with one registered user, "petition-based governance" is theatre. The kernel addresses this with a *bootstrap-admin pattern*:
+
+- Variables has two principals: a permanent **admin** (set to `PetitionRegistry` after the initial deploy), and an optional **bootstrap_admin** (initially the platform creator).
+- The bootstrap_admin can change any kernel variable directly — **as long as `total_users < BootstrapUserThreshold`**. Once the threshold is reached, those writes silently stop working.
+- The bootstrap_admin can ratchet `BootstrapUserThreshold` *down* (e.g., lower it to 100 if growth is faster than expected) but **not up** — they cannot extend their own mandate.
+- The bootstrap_admin may also voluntarily retire via `retire_bootstrap_admin`.
+- Petitions are *not* limited by the ratchet — once governance is real, the community can change anything.
+
+The intent is a graceful handoff: during bootstrap, the creator can tune variables quickly; once there are enough users for quorum-based voting to be meaningful, the creator's direct power sunsets automatically.
 
 ## Kernel 
 
@@ -295,7 +307,9 @@ Politicus is user-controlled *post-launch* — but someone has to build version 
 
 * Reduce the fees to zero (an 80% supermajority on a variable change).
 * Change `TreasuryAddress` to point at a DAO contract — at which point the treasury becomes community-controlled.
-* Replace the whole structure via KERNEL petition (90% supermajority).
+* Replace the whole structure via KERNEL petition (90% supermajority, once the KERNEL petition type is implemented).
+
+During the bootstrap phase (see Bootstrap above), the platform creator can adjust treasury parameters directly. Once `total_users >= BootstrapUserThreshold`, only successful petitions can.
 
 The intent is **not** that the founder collects fees forever. The intent is that the founder is funded during the bootstrap phase, and that the community can take over treasury control whenever it has the will and the structure to do so. A DAO migration is the expected long-term endpoint — the kernel just doesn't presume to know what kind of DAO, or when. That is for the community to decide.
 
@@ -311,7 +325,9 @@ Outside the protocol, the platform creator may also operate a reference client, 
 
 ### How do we deal with bots?
 
-BrightID's social-graph verification gives us proof-of-personhood without biometrics. Combined with the per-action cost, this should keep bots out at the platform level. Open question: how do we handle a verified human who runs an automated agent under their own key?
+BrightID's social-graph verification gives us proof-of-personhood without biometrics. Combined with the per-action cost, this should keep bots out at the platform level. Open question: how do we handle a verified human who runs an automated agent under their own key? (AI summarizers are an example — we plan to allow them, flagged as machine-generated, with the human key holder accountable.)
+
+> **Implementation status:** BrightID verification is currently a placeholder — the IdentityRegistry contract accepts any 32-byte hash as a "BrightID attestation" without verifying a signature. Production needs an on-chain ed25519 verify against BrightID's well-known public key.
 
 ### How do we deal with "copyminting"?
 

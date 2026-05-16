@@ -2,6 +2,37 @@
 
 > This document describes the technical architecture of Curious Politicus. For the conceptual model and data shapes (Bit, BitVote, Petition, etc.), see [README.md](./README.md).
 
+## 0. Build status snapshot
+
+As of mid-May 2026, deployed to Tezlink Shadownet:
+
+| Contract           | Address                                          | Status |
+|--------------------|--------------------------------------------------|--------|
+| Variables          | `KT1CM56B5QdrVnBPc2RRc5KC9YeUJyxQGeWU`           | live, bootstrap-admin pattern |
+| Treasury           | `KT1KKH5KPTmYJ5NtLnShMiWHVhU4wik3Pcih`           | live |
+| IdentityRegistry   | `KT1LBdKpeUNd2hq49q4keziRm431QYytyBfS`           | live, with `total_users` counter |
+| BitRegistry        | `KT193vzUnno9keXoAgpCunscMUYUviREE96d`           | live |
+| PetitionRegistry   | `KT1UEUHiDvszkQeRYNEexdTUgGxtfyaJ86xq`           | live, 5 action types |
+| ModerationRegistry | `KT1PRAZuSK9gGBGukrtyuUwoVojhL9G6XyQU`           | live |
+| SyndicateRegistry  | —                                                | deferred |
+| BitNFTFactory      | —                                                | deferred (Phase E) |
+
+Off-chain stack live in `docker-compose.yml`:
+
+- **PostgreSQL 16** with 4 migrations (init, petitions, moderation, petition_votes)
+- **Indexer** (Node + porsager/postgres) polling TzKT bigmaps + ops with adaptive 2s/8s cadence
+- **API** (Hono + Postgres) — content storage, joined feeds, moderation enforcement (HTTP 451)
+- **Web** (Vite + React + Taquito + react-router + react-markdown + lucide-react) — full feed, petitions, moderation, profile, threaded replies, optimistic UI
+
+**Phase status:**
+- Phase A (Variables, Treasury, IdentityRegistry, BitRegistry): ✓ done
+- Phase B (PetitionRegistry, governance loop): ✓ done
+- Phase C (ModerationRegistry, moderation petitions): ✓ done
+- Phase D (Syndicate): deferred (not designed yet — advisory vs enforced is undecided)
+- Phase E (BitNFT FA2): deferred (Phase E, blocking on stablecoin denomination decision)
+
+The kernel as described in README.md is functionally complete modulo the deferred items.
+
 ## 1. Overview
 
 Politicus is a publishing platform whose core invariant is: **every piece of content carries cryptographic proof of who created it, and every state change to the platform itself is governed by signed, costed actions from verified humans.**
@@ -114,21 +145,32 @@ REM-moderated content is removed *from compliant indexers and gateways*. The on-
 
 ## 6. Protocol Layer (Tezos X)
 
-Deployed as Michelson smart contracts on [Tezos X](https://tezos.com). No custom rollup. Politicus inherits security and durability directly from Tezos L1.
+Deployed as Michelson smart contracts on [Tezos X](https://tezos.com) (currently Tezlink Shadownet). No custom rollup. Politicus inherits security and durability directly from Tezos L1.
 
-### Contract topology (proposed)
+### Contract topology (as built)
 
 ```
 PoliticusKernel
-├── IdentityRegistry        - BrightID → UID bindings, VerificationClaims
-├── BitRegistry             - Bit and BitVote storage
-├── SyndicateRegistry       - Syndicate membership
-├── PetitionRegistry        - Active and resolved petitions
-├── ModerationRegistry      - Active MOD entries
-├── Variables               - Kernel variables (TreasuryFee, BitCost, ...)
-├── Treasury                - Receives fees, holds funds
-└── BitNFTFactory           - Mints FA2 contracts per author or per Bit
+├── IdentityRegistry        - BrightID → UID bindings, total_users counter, count_users view
+├── BitRegistry             - Bit and BitVote storage, calls IdentityRegistry + Variables + Treasury
+├── PetitionRegistry        - Petitions of 5 action types, calls Variables and ModerationRegistry on resolve
+├── ModerationRegistry      - moderated_content + moderated_users big_maps, admin = PetitionRegistry
+├── Variables               - Kernel variables, dual-admin: PetitionRegistry + bootstrap_admin
+├── Treasury                - Receives action fees + BitNFT cuts, admin-controlled withdraw
+├── SyndicateRegistry       - deferred (Phase D)
+└── BitNFTFactory           - deferred (Phase E)
 ```
+
+### Bootstrap admin pattern (Variables)
+
+Variables has two writers:
+
+- **admin** (PetitionRegistry after the bootstrap transfer): can always write.
+- **bootstrap_admin** (the deployer, optional): can write only when `total_users < BootstrapUserThreshold` (read live from IdentityRegistry's `count_users` view).
+
+Bootstrap_admin can ratchet `BootstrapUserThreshold` *down* (never up), and may voluntarily retire via `retire_bootstrap_admin`. Once `total_users` hits the threshold, bootstrap_admin's writes silently fail — the contract enforces sunset automatically without any explicit migration step.
+
+The intent is a graceful handoff: during bootstrap, the creator can tune the kernel quickly; once there's enough population for quorum to be meaningful, only successful petitions can change anything.
 
 Why split this way:
 
@@ -184,6 +226,22 @@ AI-generated "news front pages" are User-operated agents that read recent Bits a
 
 If an AI summarizer hallucinates, the produced Bit is moderable like any other.
 
+### Reference indexer (as built)
+
+Lives in `indexer/`. Node + porsager/postgres + native fetch against TzKT's REST API. Five sources are tracked:
+
+| Source | TzKT endpoint | Cursor field | Target table |
+|---|---|---|---|
+| bigmaps | `/v1/bigmaps/updates?bigmap.in=<users,bits,petitions,mod_content,mod_users>` | `offset.cr` | `users`, `bits`, `petitions`, `moderated_content`, `moderated_users` |
+| votes | `/v1/operations/transactions?target=BitRegistry&entrypoint=vote_bit` | `id.gt` | `votes` |
+| petition_votes | `/v1/operations/transactions?target=PetitionRegistry&entrypoint=vote_petition` | `id.gt` | `petition_votes` |
+
+**TzKT quirk:** `id.gt` is silently ignored on `/v1/bigmaps/updates` — must use `offset.cr` instead. We learned this the hard way (entries kept getting re-indexed each cycle until we switched filters). The two operation endpoints honor `id.gt` correctly.
+
+All upserts are idempotent (`ON CONFLICT DO UPDATE`), so resetting cursors and replaying is always safe.
+
+Polling cadence is 10s baseline. The web app's adaptive polling (2s vs 8s) is independent of the indexer.
+
 ## 8. Client Layer
 
 Clients are user-facing applications. The reference client is run by the platform creator; third-party clients are encouraged.
@@ -198,7 +256,23 @@ Clients are user-facing applications. The reference client is run by the platfor
 - BrightID linking flow during onboarding.
 - BitNFT minting, browsing, transfer.
 
-### Reference client
+### Reference client (as built)
+
+Lives in `web/`. Stack: Vite + React 18 + TypeScript, react-router-dom (HashRouter), Taquito (InMemorySigner — dev mode, see notes below), react-markdown + remark-gfm, lucide-react for icons. Routes: `/`, `/petitions`, `/bit/:bid`, `/petition/:pid`, `/user/:address`.
+
+Implemented:
+
+- Feed with compose form, optimistic placeholders, adaptive polling (2s when watching pending writes, 8s idle), and markdown rendering.
+- Vote / moderate / reply on each Bit with per-button spinners that hold until the indexer reflects the change. Buttons disable when you've already voted to prevent same-direction re-votes.
+- Petitions tab with a kernel-variable dropdown (grouped: Action costs, Quorums, Majorities, Time, Treasury, Bootstrap) showing current value + unit. Yay/nay/resolve buttons with progress.
+- Single-bit page with ancestor thread (recursive parent chain, collapsible), votes list, replies, reply compose.
+- Single-petition page with full action payload + state + voting.
+- Profile page with editable username/bio, last 50 bits.
+- Moderation enforcement is visible: moderated content is removed from feeds entirely; direct hash access returns HTTP 451; moderated users get a flag on profile.
+
+Dev wallet: a paste-`edsk…`-into-localStorage flow. **This is dev-mode only**; production needs Beacon wallet integration (Temple, Kukai) — not yet built.
+
+### Reference client (commercial)
 
 The platform creator's reference client is the commercial vehicle for sustainability. It:
 
@@ -297,16 +371,23 @@ This must be solved before launch; key loss = identity loss = lost reputation.
 
 ## 12. Deployment Topology
 
-### Phase 0 — Tezlink Shadownet (now)
+### Phase 0 — Tezlink Shadownet (current)
 
-- Deploy minimal kernel: IdentityRegistry, BitRegistry, Variables, Treasury.
-- BrightID integration via testnet attestations.
-- Reference client local-only.
-- Goal: validate Michelson contract correctness, governance flow, BitNFT mint flow.
+- ✓ Variables (with bootstrap-admin pattern), Treasury, IdentityRegistry (with total_users counter), BitRegistry, PetitionRegistry (5 action types), ModerationRegistry — all live.
+- ✓ BrightID is *placeholder* — accepts any 32-byte hash without signature verification.
+- ✓ Reference client (`web/`) running locally with full feed, petitions, profile, moderation.
+- ✓ Indexer + API in `docker-compose.yml`, schema in `db/migrations/`.
+- Goal achieved: validated kernel contract correctness, governance flow end-to-end (passing + failing petitions), inter-contract calls (PetitionRegistry → Variables / ModerationRegistry on resolve).
 
-### Phase 1 — Tezos X testnet (May 2026+)
+### Phase 1 — Tezos X testnet (May–June 2026)
 
-- Full contract suite deployed.
+When the full Tezos X testnet stabilizes (Tezlink Shadownet is its Michelson layer; full EVM+Michelson testnet was announced for May 2026):
+
+- Migrate contract origination targets to the Tezos X testnet RPC.
+- Replace BrightID placeholder with real signature verification.
+- Replace dev-only paste-key wallet with Beacon (Temple/Kukai) integration.
+- Build SyndicateRegistry (Phase D) if needed for first real users.
+- Build BitNFT FA2 (Phase E) for collectible monetization.
 - Reference client beta with one partner organization (target: a small newsroom or research outlet).
 - Public indexer, public verifier service for the partner.
 - Goal: validate end-to-end UX with real users, refine onboarding.
@@ -329,14 +410,17 @@ This must be solved before launch; key loss = identity loss = lost reputation.
 
 These need resolution before Phase 1:
 
-- **Fee destination after TreasuryFee cut**: which actor receives the remainder? Creators of voted-up content? Quorum participants? Burned? Mixed?
-- **Machine-generated content flag**: kernel-level boolean on Bit, or off-chain convention?
-- **Key recovery model**: social recovery vs. custodial vs. hybrid?
-- **Bit content size limits**: what's the maximum size of a single Bit's content? Different limits for different content types?
-- **Indexer-content-storage relationship**: do indexers run their own IPFS pinning, or rely on creators to keep content available?
-- **Vote weight**: pure 1-user-1-vote, quadratic costs, or stake-weighted?
-- **REM_USER scope**: does it remove all the user's past Bits, or just block future ones? README currently has this as an open question.
+- **Fee destination after TreasuryFee cut**: which actor receives the remainder? Creators of voted-up content? Quorum participants? Burned? Mixed? **Current MVP routes 100% to Treasury** as a simplification — the real distribution model is undecided.
+- **Stablecoin denomination**: variables are currently denominated in mutez. README defaults are in `$`. Picking a stablecoin (USDt on Etherlink? kUSD? USDC bridge?) is a Phase E prerequisite for BitNFT royalty math.
+- **Machine-generated content flag**: kernel-level boolean on Bit, or off-chain convention? AI summarizers (planned) need this.
+- **Key recovery model**: social recovery vs. custodial vs. hybrid? Currently dev-paste-key. Beacon wallet covers some of this.
+- **Bit content size limits**: what's the maximum size of a single Bit's content? Different limits for different content types? Currently unbounded.
+- **Indexer-content-storage relationship**: do indexers run their own IPFS pinning, or rely on creators to keep content available? Currently API stores bytes in Postgres BYTEA.
+- **Vote weight**: pure 1-user-1-vote, quadratic costs, or stake-weighted? Currently quadratic per-Bit; per-user vote weight is uniform.
+- **REM_USER scope**: does it remove all the user's past Bits, or just block future ones? Current implementation: blocks all (their bits get filtered from feeds via `moderated_users` join).
 - **Cross-jurisdictional moderation**: when EU indexers and US indexers disagree on what to serve, what is the user-facing experience?
+- **Syndicate semantics**: advisory (label only) or enforced (BitRegistry verifies membership)? Decision blocks Phase D start.
+- **KERNEL petition mechanics**: how does kernel replacement actually work? Proxy contract pattern with petition-triggered swap? Currently no implementation.
 
 ## 14. Non-Goals
 
