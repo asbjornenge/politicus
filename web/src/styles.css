@@ -143,3 +143,10 @@ button.secondary {
 .error { color: #ff6b6b; font-size: 13px; margin-top: 8px; }
 .success { color: #4ade80; font-size: 13px; margin-top: 8px; }
 .muted { color: #666; font-size: 12px; }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.spinner {
+  animation: spin 1s linear infinite;
+}

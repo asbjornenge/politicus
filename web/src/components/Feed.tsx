@@ -2,9 +2,14 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronUp, ChevronDown, Flag } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
-import { listBits } from '../api';
+import { listBits, postContent } from '../api';
 import type { Bit, Config } from '../api';
-import { voteBit, createModContentAddPetition, isUserRegistered, registerUser } from '../tezos';
+import {
+  voteBit, sendCreateBit, sendCreateModContentAddPetition,
+  ensureRegistered,
+} from '../tezos';
+import { Compose } from './Compose';
+import { PendingPost, type PendingItem } from './PendingPost';
 
 const PREVIEW_CHARS = 280;
 
@@ -14,42 +19,80 @@ function ContentPreview({ text }: { text: string; bid: string }) {
   return <>{cut}…</>;
 }
 
-export function Feed({ tezos, cfg, address, refreshSignal }: { tezos: TezosToolkit; cfg: Config; address: string; refreshSignal: number }) {
+export function Feed({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config; address: string }) {
   const [bits, setBits] = useState<Bit[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
+  const [pending, setPending] = useState<PendingItem<Bit>[]>([]);
 
-  async function reload() {
-    setLoading(true);
-    try {
-      const b = await listBits();
-      setBits(b);
-    } finally {
-      setLoading(false);
-    }
+  function updatePending(id: string, patch: Partial<PendingItem<Bit>>) {
+    setPending(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
+  }
+  function removePending(id: string) {
+    setPending(prev => prev.filter(p => p.id !== id));
   }
 
-  useEffect(() => { reload(); }, [refreshSignal]);
+  const isWatching = pending.some(p => Boolean(p.match));
 
   useEffect(() => {
-    const t = setInterval(reload, 8000);
-    return () => clearInterval(t);
-  }, []);
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const fresh = await listBits();
+        if (cancelled) return;
+        setBits(fresh);
+        setLoading(false);
+        setPending(prev => prev.flatMap(p => {
+          if (!p.match) return [p];
+          if (fresh.some(p.match)) return [];
+          if (p.matchStartedAt && Date.now() - p.matchStartedAt > 80_000) {
+            return [{ ...p, match: undefined, status: '', error: 'indexer is taking longer than expected.' }];
+          }
+          return [p];
+        }));
+      } catch (e) {
+        if (!cancelled) console.error('poll error', e);
+      }
+    };
+    tick();
+    const handle = setInterval(tick, isWatching ? 2000 : 8000);
+    return () => { cancelled = true; clearInterval(handle); };
+  }, [isWatching]);
 
-  async function ensureRegistered() {
-    const r = await isUserRegistered(tezos, cfg, address);
-    if (!r) {
-      const placeholderHash = `00${address.slice(-62)}`.padStart(64, '0');
-      await registerUser(tezos, cfg, { brightidHash: placeholderHash, username: address.slice(0, 8), bio: '' });
+  async function handleSubmit(text: string) {
+    const id = crypto.randomUUID();
+    setPending(prev => [{ id, text, status: 'preparing…' }, ...prev]);
+
+    try {
+      const beforeBids = new Set(bits.filter(b => b.creator === address).map(b => b.bid));
+
+      await ensureRegistered(tezos, cfg, address, s => updatePending(id, { status: s }));
+
+      updatePending(id, { status: 'uploading content…' });
+      const contentHash = await postContent(text);
+
+      updatePending(id, { status: 'signing transaction…' });
+      const op = await sendCreateBit(tezos, cfg, contentHash);
+
+      updatePending(id, { status: `in mempool (${op.hash.slice(0, 10)}…), waiting for confirmation…` });
+      await op.confirmation();
+
+      updatePending(id, {
+        status: 'confirmed, waiting for indexer…',
+        match: (b: Bit) => b.creator === address && !beforeBids.has(b.bid),
+        matchStartedAt: Date.now(),
+      });
+    } catch (e: any) {
+      updatePending(id, { error: e.message ?? String(e) });
     }
   }
 
   async function vote(bid: string, dir: boolean) {
     setBusy(bid);
     try {
+      await ensureRegistered(tezos, cfg, address);
       await voteBit(tezos, cfg, bid, dir, 1);
-      await reload();
     } catch (e: any) {
       alert(e.message ?? String(e));
     } finally {
@@ -58,11 +101,12 @@ export function Feed({ tezos, cfg, address, refreshSignal }: { tezos: TezosToolk
   }
 
   async function moderate(bit: Bit) {
-    if (!confirm(`Propose moderation for this Bit?\n\nThis creates a petition to add ${bit.content_hash.slice(0, 12)}… to the moderation registry. Others must vote yay to pass.\n\nCosts PetitionContentModerationAddCost (1 tez on test config).`)) return;
+    if (!confirm(`Propose moderation for this Bit?\n\nThis creates a petition. Costs PetitionContentModerationAddCost.`)) return;
     setBusy(bit.bid); setNotice('');
     try {
-      await ensureRegistered();
-      await createModContentAddPetition(tezos, cfg, bit.content_hash);
+      await ensureRegistered(tezos, cfg, address);
+      const op = await sendCreateModContentAddPetition(tezos, cfg, bit.content_hash);
+      await op.confirmation();
       setNotice('moderation petition created. switch to the petitions tab to vote and resolve.');
     } catch (e: any) {
       alert(e.message ?? String(e));
@@ -71,12 +115,15 @@ export function Feed({ tezos, cfg, address, refreshSignal }: { tezos: TezosToolk
     }
   }
 
-  if (loading && bits.length === 0) return <p className="muted">loading feed…</p>;
-  if (bits.length === 0) return <p className="muted">no bits yet. post something.</p>;
-
   return (
     <div>
+      <Compose onSubmit={handleSubmit} />
       {notice && <div className="success" style={{ marginBottom: 12 }}>{notice}</div>}
+      {pending.map(p => (
+        <PendingPost key={p.id} item={p} onDismiss={() => removePending(p.id)} />
+      ))}
+      {loading && bits.length === 0 && pending.length === 0 && <p className="muted">loading feed…</p>}
+      {bits.length === 0 && !loading && pending.length === 0 && <p className="muted">no bits yet. post something.</p>}
       {bits.map(b => (
         <div key={b.bid} className="bit">
           <div className="meta">

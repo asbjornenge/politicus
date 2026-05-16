@@ -3,9 +3,14 @@ import { useParams, Link } from 'react-router-dom';
 import { ChevronUp, ChevronDown, Flag, MessageCircle } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
 import type { Config, BitDetail } from '../api';
-import { getBit } from '../api';
-import { voteBit, createModContentAddPetition, isUserRegistered, registerUser } from '../tezos';
+import { getBit, postContent } from '../api';
+import {
+  voteBit, sendCreateBit, sendCreateModContentAddPetition,
+  ensureRegistered,
+} from '../tezos';
 import { Compose } from './Compose';
+import { PendingPost, type PendingItem } from './PendingPost';
+
 
 export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config; address: string }) {
   const { bid } = useParams<{ bid: string }>();
@@ -16,31 +21,46 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
   const [notice, setNotice] = useState('');
   const [replying, setReplying] = useState(false);
   const [showThread, setShowThread] = useState(true);
+  const [pendingReplies, setPendingReplies] = useState<PendingItem<any>[]>([]);
 
-  async function reload() {
+  function updatePending(id: string, patch: Partial<PendingItem<any>>) {
+    setPendingReplies(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
+  }
+
+  const isWatching = pendingReplies.some(p => Boolean(p.match));
+
+  useEffect(() => {
     if (!bid) return;
-    setLoading(true);
-    try { setData(await getBit(bid)); }
-    finally { setLoading(false); }
-  }
-
-  useEffect(() => { reload(); }, [bid]);
-
-  async function ensureRegistered() {
-    const r = await isUserRegistered(tezos, cfg, address);
-    if (!r) {
-      const placeholderHash = `00${address.slice(-62)}`.padStart(64, '0');
-      await registerUser(tezos, cfg, { brightidHash: placeholderHash, username: address.slice(0, 8), bio: '' });
-    }
-  }
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const fresh = await getBit(bid);
+        if (cancelled || !fresh) return;
+        setData(fresh);
+        setLoading(false);
+        setPendingReplies(prev => prev.flatMap(p => {
+          if (!p.match) return [p];
+          if (fresh.replies.some(p.match)) return [];
+          if (p.matchStartedAt && Date.now() - p.matchStartedAt > 80_000) {
+            return [{ ...p, match: undefined, status: '', error: 'indexer is taking longer than expected.' }];
+          }
+          return [p];
+        }));
+      } catch (e) {
+        if (!cancelled) console.error('poll error', e);
+      }
+    };
+    tick();
+    const handle = setInterval(tick, isWatching ? 2000 : 8000);
+    return () => { cancelled = true; clearInterval(handle); };
+  }, [bid, isWatching]);
 
   async function vote(dir: boolean) {
     if (!bid) return;
     setBusy(true); setErr('');
     try {
-      await ensureRegistered();
+      await ensureRegistered(tezos, cfg, address);
       await voteBit(tezos, cfg, bid, dir, 1);
-      await reload();
     } catch (e: any) { setErr(e.message ?? String(e)); }
     finally { setBusy(false); }
   }
@@ -50,11 +70,41 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
     if (!confirm(`Propose moderation for this Bit? Costs PetitionContentModerationAddCost.`)) return;
     setBusy(true); setErr('');
     try {
-      await ensureRegistered();
-      await createModContentAddPetition(tezos, cfg, data.bit.content_hash);
+      await ensureRegistered(tezos, cfg, address);
+      const op = await sendCreateModContentAddPetition(tezos, cfg, data.bit.content_hash);
+      await op.confirmation();
       setNotice('moderation petition created. switch to the petitions page to vote.');
     } catch (e: any) { setErr(e.message ?? String(e)); }
     finally { setBusy(false); }
+  }
+
+  async function handleReply(text: string) {
+    if (!bid || !data) return;
+    const id = crypto.randomUUID();
+    setReplying(false);
+    setPendingReplies(prev => [...prev, { id, text, status: 'preparing…' }]);
+    try {
+      const beforeBids = new Set((data.replies ?? []).filter(b => b.creator === address).map(b => b.bid));
+
+      await ensureRegistered(tezos, cfg, address, s => updatePending(id, { status: s }));
+
+      updatePending(id, { status: 'uploading content…' });
+      const contentHash = await postContent(text);
+
+      updatePending(id, { status: 'signing transaction…' });
+      const op = await sendCreateBit(tezos, cfg, contentHash, bid);
+
+      updatePending(id, { status: `in mempool (${op.hash.slice(0, 10)}…), waiting for confirmation…` });
+      await op.confirmation();
+
+      updatePending(id, {
+        status: 'confirmed, waiting for indexer…',
+        match: (r: any) => r.creator === address && !beforeBids.has(r.bid),
+        matchStartedAt: Date.now(),
+      });
+    } catch (e: any) {
+      updatePending(id, { error: e.message ?? String(e) });
+    }
   }
 
   if (loading) return <p className="muted">loading…</p>;
@@ -133,21 +183,25 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
       {replying && (
         <div style={{ marginTop: 16 }}>
           <Compose
-            tezos={tezos}
-            cfg={cfg}
-            address={address}
             parent={b.bid}
-            onPosted={() => { setReplying(false); reload(); }}
+            onSubmit={handleReply}
             onCancel={() => setReplying(false)}
           />
         </div>
       )}
 
-      {data.replies.length > 0 && (
+      {(data.replies.length > 0 || pendingReplies.length > 0) && (
         <>
           <h3 style={{ fontSize: 14, color: '#888', marginTop: 24, marginBottom: 8 }}>
-            {data.replies.length} repl{data.replies.length === 1 ? 'y' : 'ies'}
+            {data.replies.length + pendingReplies.length} repl{(data.replies.length + pendingReplies.length) === 1 ? 'y' : 'ies'}
           </h3>
+          {pendingReplies.map(p => (
+            <PendingPost
+              key={p.id}
+              item={p}
+              onDismiss={() => setPendingReplies(prev => prev.filter(x => x.id !== p.id))}
+            />
+          ))}
           {data.replies.map(r => (
             <div key={r.bid} className="bit">
               <div className="meta">

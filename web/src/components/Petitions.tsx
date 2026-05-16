@@ -4,8 +4,13 @@ import { ChevronUp, ChevronDown, Check, X as XIcon } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
 import type { Config, Petition } from '../api';
 import { listPetitions } from '../api';
-import { createSetVariablePetition, votePetition, resolvePetition, isUserRegistered, registerUser, readVariable } from '../tezos';
+import {
+  sendCreateSetVariablePetition, votePetition, resolvePetition,
+  ensureRegistered, readVariable,
+} from '../tezos';
 import { KERNEL_VARS, groupedKernelVars, formatValue } from '../kernelVars';
+import { PendingPost, type PendingItem } from './PendingPost';
+
 
 export function Petitions({
   tezos,
@@ -20,34 +25,50 @@ export function Petitions({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState('');
+  const [pending, setPending] = useState<PendingItem<Petition>[]>([]);
+
+  function updatePending(id: string, patch: Partial<PendingItem<Petition>>) {
+    setPending(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
+  }
+  function removePending(id: string) {
+    setPending(prev => prev.filter(p => p.id !== id));
+  }
 
   async function reload() {
-    setLoading(true);
-    try {
-      setPetitions(await listPetitions());
-    } finally {
-      setLoading(false);
-    }
+    setPetitions(await listPetitions());
   }
 
-  useEffect(() => { reload(); }, []);
+  const isWatching = pending.some(p => Boolean(p.match));
+
   useEffect(() => {
-    const t = setInterval(reload, 8000);
-    return () => clearInterval(t);
-  }, []);
-
-  async function ensureRegistered() {
-    const r = await isUserRegistered(tezos, cfg, address);
-    if (!r) {
-      const placeholderHash = `00${address.slice(-62)}`.padStart(64, '0');
-      await registerUser(tezos, cfg, { brightidHash: placeholderHash, username: address.slice(0, 8), bio: '' });
-    }
-  }
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const fresh = await listPetitions();
+        if (cancelled) return;
+        setPetitions(fresh);
+        setLoading(false);
+        setPending(prev => prev.flatMap(p => {
+          if (!p.match) return [p];
+          if (fresh.some(p.match)) return [];
+          if (p.matchStartedAt && Date.now() - p.matchStartedAt > 80_000) {
+            return [{ ...p, match: undefined, status: '', error: 'indexer is taking longer than expected.' }];
+          }
+          return [p];
+        }));
+      } catch (e) {
+        if (!cancelled) console.error('poll error', e);
+      }
+    };
+    tick();
+    const handle = setInterval(tick, isWatching ? 2000 : 8000);
+    return () => { cancelled = true; clearInterval(handle); };
+  }, [isWatching]);
 
   async function vote(pid: string, dir: boolean) {
     setBusy(pid); setErr('');
     try {
-      await ensureRegistered();
+      await ensureRegistered(tezos, cfg, address);
       await votePetition(tezos, cfg, pid, dir, 1);
       await reload();
     } catch (e: any) {
@@ -65,12 +86,39 @@ export function Petitions({
     } finally { setBusy(null); }
   }
 
+  async function handleCreate(key: string, value: number) {
+    const id = crypto.randomUUID();
+    setPending(prev => [{ id, text: `${key} → ${value}`, status: 'preparing…' }, ...prev]);
+    try {
+      const beforePids = new Set(petitions.filter(p => p.creator === address).map(p => p.pid));
+
+      await ensureRegistered(tezos, cfg, address, s => updatePending(id, { status: s }));
+
+      updatePending(id, { status: 'signing transaction…' });
+      const op = await sendCreateSetVariablePetition(tezos, cfg, key, value);
+
+      updatePending(id, { status: `in mempool (${op.hash.slice(0, 10)}…), waiting for confirmation…` });
+      await op.confirmation();
+
+      updatePending(id, {
+        status: 'confirmed, waiting for indexer…',
+        match: (p: Petition) => p.creator === address && !beforePids.has(p.pid),
+        matchStartedAt: Date.now(),
+      });
+    } catch (e: any) {
+      updatePending(id, { error: e.message ?? String(e) });
+    }
+  }
+
   return (
     <div>
-      <CreatePetition tezos={tezos} cfg={cfg} address={address} onCreated={reload} />
+      <CreatePetition tezos={tezos} cfg={cfg} onCreate={handleCreate} />
       {err && <div className="error">{err}</div>}
-      {loading && petitions.length === 0 && <p className="muted">loading petitions…</p>}
-      {petitions.length === 0 && !loading && <p className="muted">no petitions yet.</p>}
+      {pending.map(p => (
+        <PendingPost key={p.id} item={p} onDismiss={() => removePending(p.id)} />
+      ))}
+      {loading && petitions.length === 0 && pending.length === 0 && <p className="muted">loading petitions…</p>}
+      {petitions.length === 0 && !loading && pending.length === 0 && <p className="muted">no petitions yet.</p>}
       {petitions.map(p => (
         <PetitionRow
           key={p.pid}
@@ -174,9 +222,9 @@ function renderPayload(t: string, payload: any) {
 }
 
 function CreatePetition({
-  tezos, cfg, address, onCreated,
+  tezos, cfg, onCreate,
 }: {
-  tezos: TezosToolkit; cfg: Config; address: string; onCreated: () => void;
+  tezos: TezosToolkit; cfg: Config; onCreate: (key: string, value: number) => void | Promise<void>;
 }) {
   const [key, setKey] = useState('BitCost');
   const [value, setValue] = useState('');
@@ -184,7 +232,6 @@ function CreatePetition({
   const [loadingCurrent, setLoadingCurrent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  const [status, setStatus] = useState('');
 
   const meta = KERNEL_VARS.find(v => v.key === key)!;
   const grouped = groupedKernelVars();
@@ -201,21 +248,12 @@ function CreatePetition({
   }, [key, tezos, cfg]);
 
   async function submit() {
-    setBusy(true); setErr(''); setStatus('');
+    setBusy(true); setErr('');
     try {
-      const r = await isUserRegistered(tezos, cfg, address);
-      if (!r) {
-        setStatus('registering...');
-        const placeholderHash = `00${address.slice(-62)}`.padStart(64, '0');
-        await registerUser(tezos, cfg, { brightidHash: placeholderHash, username: address.slice(0, 8), bio: '' });
-      }
       const n = Number(value);
       if (!Number.isFinite(n) || n < 0) throw new Error('invalid value');
-      setStatus(`creating petition Set_variable(${key}, ${n})...`);
-      await createSetVariablePetition(tezos, cfg, key, n);
-      setStatus(`created. indexer will pick up in a few seconds.`);
       setValue('');
-      onCreated();
+      await onCreate(key, n);
     } catch (e: any) {
       setErr(e.message ?? String(e));
     } finally { setBusy(false); }
@@ -261,9 +299,9 @@ function CreatePetition({
         current: {loadingCurrent ? '…' : currentValue !== null ? formatValue(currentValue, meta.unit) : 'unknown'}
       </div>
       <div className="actions">
-        <span className="muted">{status || 'costs PetitionUpdateVariableCost'}</span>
+        <span className="muted">costs PetitionUpdateVariableCost</span>
         <button onClick={submit} disabled={busy || !value}>
-          {busy ? 'creating…' : 'propose'}
+          {busy ? 'submitting…' : 'propose'}
         </button>
       </div>
       {err && <div className="error">{err}</div>}

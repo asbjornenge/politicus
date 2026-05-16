@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { HashRouter, Routes, Route, NavLink } from 'react-router-dom';
 import type { TezosToolkit } from '@taquito/taquito';
-import { Compose } from './components/Compose';
 import { Feed } from './components/Feed';
 import { Petitions } from './components/Petitions';
 import { BitPage } from './components/BitPage';
@@ -16,7 +15,6 @@ export default function App() {
   const [cfg, setCfg] = useState<Config | null>(null);
   const [tezos, setTezos] = useState<TezosToolkit | null>(null);
   const [address, setAddress] = useState<string | null>(null);
-  const [refreshSignal, setRefreshSignal] = useState(0);
   const [err, setErr] = useState('');
 
   useEffect(() => {
@@ -73,17 +71,7 @@ export default function App() {
         <NavLink to="/petitions" style={navLinkStyle}>petitions</NavLink>
       </nav>
       <Routes>
-        <Route path="/" element={
-          <>
-            <Compose
-              tezos={tezos}
-              cfg={cfg}
-              address={address}
-              onPosted={() => setRefreshSignal(s => s + 1)}
-            />
-            <Feed tezos={tezos} cfg={cfg} address={address} refreshSignal={refreshSignal} />
-          </>
-        } />
+        <Route path="/" element={<Feed tezos={tezos} cfg={cfg} address={address} />} />
         <Route path="/petitions" element={<Petitions tezos={tezos} cfg={cfg} address={address} />} />
         <Route path="/bit/:bid" element={<BitPage tezos={tezos} cfg={cfg} address={address} />} />
         <Route path="/petition/:pid" element={<PetitionPage tezos={tezos} cfg={cfg} address={address} />} />
