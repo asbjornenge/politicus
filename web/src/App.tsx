@@ -62,7 +62,9 @@ export default function App() {
       <header>
         <h1><NavLink to="/" style={{ color: 'inherit', textDecoration: 'none' }}>politicus</NavLink></h1>
         <div>
-          <span className="me">{address.slice(0, 12)}…</span>
+          <NavLink to={`/user/${address}`} className="me" style={{ color: 'inherit', textDecoration: 'none' }}>
+            {address.slice(0, 12)}…
+          </NavLink>
           <button className="secondary" onClick={logout} style={{ marginLeft: 8 }}>logout</button>
         </div>
       </header>
