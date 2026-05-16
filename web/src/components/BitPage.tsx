@@ -153,23 +153,33 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
             </button>
           </div>
           {showThread && ancestors.map(a => (
-            <Link key={a.bid} to={`/bit/${a.bid}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-              <div className="bit" style={{ borderLeft: '3px solid #3a3a45', opacity: 0.85 }}>
-                <div className="meta">
-                  <span className="creator">{a.creator_username ?? a.creator.slice(0, 12) + '…'}</span>
-                  <span>{new Date(a.creation_time).toLocaleString()}</span>
-                </div>
-                <div className="content">
-                  {a.content_moderated ? (
-                    <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Flag size={14} /> moderated</span>
-                  ) : a.content ? (
-                    a.content.length > 280 ? a.content.slice(0, 280).replace(/\s+\S*$/, '') + '…' : a.content
-                  ) : (
-                    <span className="muted">no content</span>
-                  )}
-                </div>
+            <div key={a.bid} className="bit" style={{ borderLeft: '3px solid #3a3a45', opacity: 0.85 }}>
+              <div className="meta">
+                <Link to={`/user/${a.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
+                  {a.creator_username ?? a.creator.slice(0, 12) + '…'}
+                </Link>
+                <span>{new Date(a.creation_time).toLocaleString()}</span>
               </div>
-            </Link>
+              <div className="content">
+                {a.content_moderated ? (
+                  <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Flag size={14} /> moderated</span>
+                ) : a.content ? (
+                  a.content.length > 280 ? a.content.slice(0, 280).replace(/\s+\S*$/, '') + '…' : a.content
+                ) : (
+                  <span className="muted">no content</span>
+                )}
+              </div>
+              <div className="footer">
+                <Link
+                  to={`/bit/${a.bid}`}
+                  className="muted"
+                  style={{ fontFamily: 'monospace', textDecoration: 'none', marginLeft: 'auto' }}
+                  title="open bit page"
+                >
+                  {a.bid.slice(0, 12)}…
+                </Link>
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -257,12 +267,22 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
                 <Link to={`/user/${r.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
                   {r.creator_username ?? r.creator.slice(0, 12) + '…'}
                 </Link>
-                <Link to={`/bit/${r.bid}`} className="muted" style={{ textDecoration: 'none' }}>
-                  {new Date(r.creation_time).toLocaleString()}
-                </Link>
+                <span>{new Date(r.creation_time).toLocaleString()}</span>
               </div>
               <div className="content">
-                {r.content_moderated ? <span className="muted">⚑ moderated</span> : r.content ?? <span className="muted">no content</span>}
+                {r.content_moderated ? (
+                  <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Flag size={14} /> moderated</span>
+                ) : r.content ?? <span className="muted">no content</span>}
+              </div>
+              <div className="footer">
+                <Link
+                  to={`/bit/${r.bid}`}
+                  className="muted"
+                  style={{ fontFamily: 'monospace', textDecoration: 'none', marginLeft: 'auto' }}
+                  title="open bit page"
+                >
+                  {r.bid.slice(0, 12)}…
+                </Link>
               </div>
             </div>
           ))}
