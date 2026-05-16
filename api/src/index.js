@@ -118,6 +118,23 @@ app.get('/api/bits/:bid', async c => {
   `;
   if (rows.length === 0) return c.json({ error: 'not_found' }, 404);
 
+  const ancestors = await sql`
+    WITH RECURSIVE thread AS (
+      SELECT b.bid, b.parent, 0 AS depth FROM bits b WHERE b.bid = ${bid}
+      UNION ALL
+      SELECT b.bid, b.parent, t.depth + 1 FROM bits b JOIN thread t ON b.bid = t.parent WHERE t.depth < 50
+    )
+    SELECT b.*, c.body, c.content_type, u.username, u.bio,
+      EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash) AS content_moderated,
+      EXISTS (SELECT 1 FROM moderated_users mu WHERE mu.address = b.creator) AS creator_moderated
+    FROM thread t
+    JOIN bits b ON b.bid = t.bid
+    LEFT JOIN content c ON c.hash = b.content_hash
+    LEFT JOIN users u ON u.address = b.creator
+    WHERE t.depth > 0
+    ORDER BY t.depth DESC
+  `;
+
   const replies = await sql`
     SELECT b.*, c.body, c.content_type, u.username, u.bio,
       EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash) AS content_moderated,
@@ -134,6 +151,7 @@ app.get('/api/bits/:bid', async c => {
 
   return c.json({
     bit: formatBit(rows[0]),
+    ancestors: ancestors.map(formatBit),
     replies: replies.map(formatBit),
     votes,
   });

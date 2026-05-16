@@ -14,6 +14,7 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
   const [err, setErr] = useState('');
   const [notice, setNotice] = useState('');
   const [replying, setReplying] = useState(false);
+  const [showThread, setShowThread] = useState(true);
 
   async function reload() {
     if (!bid) return;
@@ -59,9 +60,42 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
   if (!data) return <p className="error">bit not found</p>;
   const b = data.bit;
 
+  const ancestors = data.ancestors ?? [];
+
   return (
     <div>
-      <div className="bit">
+      {ancestors.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span className="muted" style={{ fontSize: 13 }}>
+              thread: {ancestors.length} bit{ancestors.length === 1 ? '' : 's'} above
+            </span>
+            <button className="secondary" style={{ fontSize: 12, padding: '2px 8px' }} onClick={() => setShowThread(t => !t)}>
+              {showThread ? 'hide' : 'show'}
+            </button>
+          </div>
+          {showThread && ancestors.map(a => (
+            <Link key={a.bid} to={`/bit/${a.bid}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+              <div className="bit" style={{ borderLeft: '3px solid #3a3a45', opacity: 0.85 }}>
+                <div className="meta">
+                  <span className="creator">{a.creator_username ?? a.creator.slice(0, 12) + '…'}</span>
+                  <span>{new Date(a.creation_time).toLocaleString()}</span>
+                </div>
+                <div className="content">
+                  {a.content_moderated ? (
+                    <span className="muted">⚑ moderated</span>
+                  ) : a.content ? (
+                    a.content.length > 280 ? a.content.slice(0, 280).replace(/\s+\S*$/, '') + '…' : a.content
+                  ) : (
+                    <span className="muted">no content</span>
+                  )}
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+      <div className="bit" style={{ borderLeft: '3px solid #4a5fd6' }}>
         <div className="meta">
           <Link to={`/user/${b.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
             {b.creator_username ?? b.creator.slice(0, 16) + '…'}

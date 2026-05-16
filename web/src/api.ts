@@ -65,6 +65,7 @@ export async function listBits(): Promise<Bit[]> {
 
 export type BitDetail = {
   bit: Bit;
+  ancestors: Bit[];
   replies: Bit[];
   votes: Array<{ voter: string; direction: boolean; votes: number; vote_time: string }>;
 };
