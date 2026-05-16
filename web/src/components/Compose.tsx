@@ -40,7 +40,7 @@ export function Compose({
       const cost = await readVariable(tezos, cfg, 'BitCost');
       setStatus(`creating Bit on-chain (${cost} mutez)...`);
       const opHash = await createBit(tezos, cfg, hash, parent ?? null);
-      setStatus(`✓ posted (${opHash.slice(0, 12)}…). indexer will pick it up in a few seconds.`);
+      setStatus(`posted (${opHash.slice(0, 12)}…). indexer will pick it up in a few seconds.`);
       setText('');
       onPosted();
     } catch (e: any) {

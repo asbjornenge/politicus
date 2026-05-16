@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { ChevronUp, ChevronDown, Check, X as XIcon } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
 import type { Config, Petition } from '../api';
 import { getPetition } from '../api';
@@ -58,7 +59,11 @@ export function PetitionPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg
   const closesAt = new Date(p.closes_at).getTime();
   const isOpen = !p.resolved && closesAt > now;
   const canResolve = !p.resolved && closesAt <= now;
-  const status = p.resolved ? (p.passed ? '✓ passed' : '✗ failed') : isOpen ? 'open for voting' : 'ready to resolve';
+  const statusLabel: React.ReactNode = p.resolved
+    ? p.passed
+      ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={14} /> passed</span>
+      : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><XIcon size={14} /> failed</span>
+    : isOpen ? 'open for voting' : 'ready to resolve';
   const minsLeft = Math.max(0, Math.round((closesAt - now) / 60000));
 
   return (
@@ -68,7 +73,7 @@ export function PetitionPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg
           <Link to={`/user/${p.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
             {p.creator_username ?? p.creator.slice(0, 16) + '…'}
           </Link>
-          <span className={p.passed ? 'success' : p.resolved ? 'error' : ''}>{status}</span>
+          <span className={p.passed ? 'success' : p.resolved ? 'error' : ''}>{statusLabel}</span>
         </div>
         <div className="content" style={{ fontSize: 16 }}>
           <strong>{prettyAction(p.action_type)}</strong>
@@ -79,8 +84,8 @@ export function PetitionPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg
         <div className="footer">
           {isOpen && (
             <>
-              <button onClick={() => vote(true)} disabled={busy}>↑ {p.yay}</button>
-              <button onClick={() => vote(false)} disabled={busy} className="secondary">↓ {p.nay}</button>
+              <button onClick={() => vote(true)} disabled={busy}><ChevronUp size={14} /> {p.yay}</button>
+              <button onClick={() => vote(false)} disabled={busy} className="secondary"><ChevronDown size={14} /> {p.nay}</button>
               <span className="muted">closes in ~{minsLeft}m</span>
             </>
           )}

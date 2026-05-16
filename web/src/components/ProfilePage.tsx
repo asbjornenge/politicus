@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { ChevronUp, ChevronDown, Flag } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
 import type { Config, Bit, User } from '../api';
 import { getUser } from '../api';
@@ -31,7 +32,11 @@ export function ProfilePage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg:
       <div className="bit">
         <div className="meta">
           <span className="creator" style={{ fontSize: 16 }}>{u.username}</span>
-          {u.moderated && <span className="error">⚑ moderated</span>}
+          {u.moderated && (
+            <span className="error" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Flag size={14} /> moderated
+            </span>
+          )}
         </div>
         {u.bio && <div className="content" style={{ marginTop: 8 }}>{u.bio}</div>}
         <div className="muted" style={{ fontSize: 12, fontFamily: 'monospace', marginTop: 12, wordBreak: 'break-all' }}>
@@ -62,10 +67,16 @@ export function ProfilePage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg:
           <div className="bit">
             <div className="meta">
               <span>{new Date(b.creation_time).toLocaleString()}</span>
-              <span className="muted">↑ {b.yay} / ↓ {b.nay}</span>
+              <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <ChevronUp size={14} /> {b.yay} <ChevronDown size={14} /> {b.nay}
+              </span>
             </div>
             <div className="content">
-              {b.content_moderated ? <span className="muted">⚑ moderated</span> : b.content?.slice(0, 200) ?? <span className="muted">no content</span>}
+              {b.content_moderated ? (
+                <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <Flag size={14} /> moderated
+                </span>
+              ) : b.content?.slice(0, 200) ?? <span className="muted">no content</span>}
               {b.content && b.content.length > 200 && '…'}
             </div>
           </div>

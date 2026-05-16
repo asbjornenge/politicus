@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { ChevronUp, ChevronDown, Flag, MessageCircle } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
 import type { Config, BitDetail } from '../api';
 import { getBit } from '../api';
@@ -51,7 +52,7 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
     try {
       await ensureRegistered();
       await createModContentAddPetition(tezos, cfg, data.bit.content_hash);
-      setNotice('✓ moderation petition created. switch to the petitions page to vote.');
+      setNotice('moderation petition created. switch to the petitions page to vote.');
     } catch (e: any) { setErr(e.message ?? String(e)); }
     finally { setBusy(false); }
   }
@@ -83,7 +84,7 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
                 </div>
                 <div className="content">
                   {a.content_moderated ? (
-                    <span className="muted">⚑ moderated</span>
+                    <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Flag size={14} /> moderated</span>
                   ) : a.content ? (
                     a.content.length > 280 ? a.content.slice(0, 280).replace(/\s+\S*$/, '') + '…' : a.content
                   ) : (
@@ -104,18 +105,18 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
         </div>
         <div className="content" style={{ fontSize: 16 }}>
           {b.content_moderated ? (
-            <span className="muted">⚑ content moderated — bytes withheld by indexer</span>
+            <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Flag size={14} /> content moderated — bytes withheld by indexer</span>
           ) : b.creator_moderated ? (
-            <span className="muted">⚑ creator moderated</span>
+            <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Flag size={14} /> creator moderated</span>
           ) : b.content ?? (
             <span className="muted">(content not uploaded — hash: {b.content_hash.slice(0, 12)}…)</span>
           )}
         </div>
         <div className="footer">
-          <button onClick={() => vote(true)} disabled={busy}>↑ {b.yay}</button>
-          <button onClick={() => vote(false)} disabled={busy} className="secondary">↓ {b.nay}</button>
-          <button onClick={() => setReplying(r => !r)} disabled={busy} className="secondary">reply</button>
-          <button onClick={moderate} disabled={busy} className="secondary" title="propose to moderate this bit">⚑</button>
+          <button onClick={() => vote(true)} disabled={busy}><ChevronUp size={14} /> {b.yay}</button>
+          <button onClick={() => vote(false)} disabled={busy} className="secondary"><ChevronDown size={14} /> {b.nay}</button>
+          <button onClick={() => setReplying(r => !r)} disabled={busy} className="secondary"><MessageCircle size={14} /> reply</button>
+          <button onClick={moderate} disabled={busy} className="secondary" title="propose to moderate this bit"><Flag size={14} /></button>
         </div>
         <div className="muted" style={{ fontSize: 12, fontFamily: 'monospace', marginTop: 12, lineHeight: 1.5, wordBreak: 'break-all' }}>
           <div>bid:&nbsp; {b.bid}</div>
@@ -171,7 +172,9 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
           <div className="bit">
             {data.votes.map(v => (
               <div key={v.voter + v.vote_time} style={{ fontSize: 13, fontFamily: 'monospace', display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                <span>{v.direction ? '↑' : '↓'} {v.votes} by {v.voter.slice(0, 16)}…</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  {v.direction ? <ChevronUp size={14} /> : <ChevronDown size={14} />} {v.votes} by {v.voter.slice(0, 16)}…
+                </span>
                 <span className="muted">{new Date(v.vote_time).toLocaleString()}</span>
               </div>
             ))}

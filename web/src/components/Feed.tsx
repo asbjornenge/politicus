@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ChevronUp, ChevronDown, Flag } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
 import { listBits } from '../api';
 import type { Bit, Config } from '../api';
@@ -62,7 +63,7 @@ export function Feed({ tezos, cfg, address, refreshSignal }: { tezos: TezosToolk
     try {
       await ensureRegistered();
       await createModContentAddPetition(tezos, cfg, bit.content_hash);
-      setNotice('✓ moderation petition created. switch to the petitions tab to vote and resolve.');
+      setNotice('moderation petition created. switch to the petitions tab to vote and resolve.');
     } catch (e: any) {
       alert(e.message ?? String(e));
     } finally {
@@ -86,9 +87,13 @@ export function Feed({ tezos, cfg, address, refreshSignal }: { tezos: TezosToolk
           </div>
           <div className="content">
             {b.content_moderated ? (
-              <span className="muted">⚑ content moderated — bytes withheld by indexer (hash: {b.content_hash.slice(0, 12)}…)</span>
+              <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Flag size={14} /> content moderated — bytes withheld by indexer (hash: {b.content_hash.slice(0, 12)}…)
+              </span>
             ) : b.creator_moderated ? (
-              <span className="muted">⚑ creator moderated — content withheld</span>
+              <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <Flag size={14} /> creator moderated — content withheld
+              </span>
             ) : b.content ? (
               <ContentPreview text={b.content} bid={b.bid} />
             ) : (
@@ -96,9 +101,9 @@ export function Feed({ tezos, cfg, address, refreshSignal }: { tezos: TezosToolk
             )}
           </div>
           <div className="footer">
-            <button onClick={() => vote(b.bid, true)} disabled={busy === b.bid}>↑ {b.yay}</button>
-            <button onClick={() => vote(b.bid, false)} disabled={busy === b.bid} className="secondary">↓ {b.nay}</button>
-            <button onClick={() => moderate(b)} disabled={busy === b.bid} className="secondary" title="propose to moderate this bit">⚑</button>
+            <button onClick={() => vote(b.bid, true)} disabled={busy === b.bid}><ChevronUp size={14} /> {b.yay}</button>
+            <button onClick={() => vote(b.bid, false)} disabled={busy === b.bid} className="secondary"><ChevronDown size={14} /> {b.nay}</button>
+            <button onClick={() => moderate(b)} disabled={busy === b.bid} className="secondary" title="propose to moderate this bit"><Flag size={14} /></button>
             <Link
               to={`/bit/${b.bid}`}
               className="muted"

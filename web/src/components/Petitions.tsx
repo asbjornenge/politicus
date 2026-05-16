@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ChevronUp, ChevronDown, Check, X as XIcon } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
 import type { Config, Petition } from '../api';
 import { listPetitions } from '../api';
@@ -97,7 +98,11 @@ function PetitionRow({
   const closesAt = new Date(p.closes_at).getTime();
   const isOpen = !p.resolved && closesAt > now;
   const canResolve = !p.resolved && closesAt <= now;
-  const status = p.resolved ? (p.passed ? '✓ passed' : '✗ failed') : (isOpen ? 'open' : 'ready to resolve');
+  const statusLabel: React.ReactNode = p.resolved
+    ? p.passed
+      ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Check size={14} /> passed</span>
+      : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><XIcon size={14} /> failed</span>
+    : isOpen ? 'open' : 'ready to resolve';
 
   const ratio = p.yay + p.nay > 0 ? Math.round((p.yay / (p.yay + p.nay)) * 100) : 0;
   const minsLeft = Math.max(0, Math.round((closesAt - now) / 60000));
@@ -108,7 +113,7 @@ function PetitionRow({
         <Link to={`/user/${p.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
           {p.creator_username ?? p.creator.slice(0, 12) + '…'}
         </Link>
-        <span className={p.passed ? 'success' : (p.resolved ? 'error' : '')}>{status}</span>
+        <span className={p.passed ? 'success' : (p.resolved ? 'error' : '')}>{statusLabel}</span>
       </div>
       <div className="content">
         <strong>{prettyAction(p.action_type)}</strong>{' '}
@@ -117,8 +122,8 @@ function PetitionRow({
       <div className="footer">
         {isOpen && (
           <>
-            <button onClick={onYay} disabled={busy}>↑ {p.yay}</button>
-            <button onClick={onNay} disabled={busy} className="secondary">↓ {p.nay}</button>
+            <button onClick={onYay} disabled={busy}><ChevronUp size={14} /> {p.yay}</button>
+            <button onClick={onNay} disabled={busy} className="secondary"><ChevronDown size={14} /> {p.nay}</button>
           </>
         )}
         {!isOpen && (
@@ -208,7 +213,7 @@ function CreatePetition({
       if (!Number.isFinite(n) || n < 0) throw new Error('invalid value');
       setStatus(`creating petition Set_variable(${key}, ${n})...`);
       await createSetVariablePetition(tezos, cfg, key, n);
-      setStatus(`✓ created. indexer will pick up in a few seconds.`);
+      setStatus(`created. indexer will pick up in a few seconds.`);
       setValue('');
       onCreated();
     } catch (e: any) {
