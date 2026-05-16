@@ -5,6 +5,7 @@ import type { TezosToolkit } from '@taquito/taquito';
 import type { Config, Bit, User } from '../api';
 import { getUser } from '../api';
 import { updateProfile } from '../tezos';
+import { Markdown } from './Markdown';
 
 export function ProfilePage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config; address: string }) {
   const { address: target } = useParams<{ address: string }>();
@@ -76,8 +77,11 @@ export function ProfilePage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg:
                 <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <Flag size={14} /> moderated
                 </span>
-              ) : b.content?.slice(0, 200) ?? <span className="muted">no content</span>}
-              {b.content && b.content.length > 200 && '…'}
+              ) : b.content ? (
+                <Markdown truncate>{b.content}</Markdown>
+              ) : (
+                <span className="muted">no content</span>
+              )}
             </div>
           </div>
         </Link>

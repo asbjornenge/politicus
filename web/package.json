@@ -13,6 +13,8 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.27.0",
     "lucide-react": "^0.460.0",
+    "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.0",
     "@taquito/taquito": "^24.3.0",
     "@taquito/signer": "^24.3.0"
   },

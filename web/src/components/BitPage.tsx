@@ -10,6 +10,7 @@ import {
 } from '../tezos';
 import { Compose } from './Compose';
 import { PendingPost, type PendingItem } from './PendingPost';
+import { Markdown } from './Markdown';
 
 
 export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config; address: string }) {
@@ -164,7 +165,7 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
                 {a.content_moderated ? (
                   <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Flag size={14} /> moderated</span>
                 ) : a.content ? (
-                  a.content.length > 280 ? a.content.slice(0, 280).replace(/\s+\S*$/, '') + '…' : a.content
+                  <Markdown truncate>{a.content}</Markdown>
                 ) : (
                   <span className="muted">no content</span>
                 )}
@@ -195,7 +196,9 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
             <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Flag size={14} /> content moderated — bytes withheld by indexer</span>
           ) : b.creator_moderated ? (
             <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Flag size={14} /> creator moderated</span>
-          ) : b.content ?? (
+          ) : b.content ? (
+            <Markdown>{b.content}</Markdown>
+          ) : (
             <span className="muted">(content not uploaded — hash: {b.content_hash.slice(0, 12)}…)</span>
           )}
         </div>
@@ -272,7 +275,11 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
               <div className="content">
                 {r.content_moderated ? (
                   <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Flag size={14} /> moderated</span>
-                ) : r.content ?? <span className="muted">no content</span>}
+                ) : r.content ? (
+                  <Markdown>{r.content}</Markdown>
+                ) : (
+                  <span className="muted">no content</span>
+                )}
               </div>
               <div className="footer">
                 <Link

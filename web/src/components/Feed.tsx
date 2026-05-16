@@ -10,14 +10,7 @@ import {
 } from '../tezos';
 import { Compose } from './Compose';
 import { PendingPost, type PendingItem } from './PendingPost';
-
-const PREVIEW_CHARS = 280;
-
-function ContentPreview({ text }: { text: string; bid: string }) {
-  if (text.length <= PREVIEW_CHARS) return <>{text}</>;
-  const cut = text.slice(0, PREVIEW_CHARS).replace(/\s+\S*$/, '');
-  return <>{cut}…</>;
-}
+import { Markdown } from './Markdown';
 
 export function Feed({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config; address: string }) {
   const [bits, setBits] = useState<Bit[]>([]);
@@ -172,7 +165,7 @@ export function Feed({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config
                 <Flag size={14} /> creator moderated — content withheld
               </span>
             ) : b.content ? (
-              <ContentPreview text={b.content} bid={b.bid} />
+              <Markdown truncate>{b.content}</Markdown>
             ) : (
               <span className="muted">(content not yet uploaded — hash: {b.content_hash.slice(0, 12)}…)</span>
             )}
