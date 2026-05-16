@@ -187,6 +187,41 @@ async function pollVoteOps() {
   }
 }
 
+async function pollPetitionVoteOps() {
+  while (true) {
+    const cursor = await getCursor('petition_votes');
+    const url = `${TZKT_API}/v1/operations/transactions?target=${PETITION_REGISTRY}&entrypoint=vote_petition&id.gt=${cursor}&sort.asc=id&limit=100&status=applied`;
+    const ops = await fetchJson(url);
+    if (ops.length === 0) return;
+
+    for (const op of ops) {
+      const p = op.parameter?.value;
+      if (!p) continue;
+      const pid = p.bytes;
+      const direction = p.bool === true || p.bool === 'true';
+      const votes = String(p.nat);
+      const voter = op.sender?.address;
+      const voteTime = op.timestamp;
+      if (!pid || !voter) continue;
+      const pvid = `${pid}:${voter}`;
+
+      await sql`
+        INSERT INTO petition_votes (pvid, pid, voter, direction, votes, vote_time)
+        VALUES (${pvid}, ${pid}, ${voter}, ${direction}, ${votes}, ${voteTime})
+        ON CONFLICT (pvid) DO UPDATE SET
+          direction = EXCLUDED.direction,
+          votes = EXCLUDED.votes,
+          vote_time = EXCLUDED.vote_time,
+          updated_at = now()
+      `;
+    }
+    await setCursor('petition_votes', ops[ops.length - 1].id);
+    console.log(`[petition_votes] +${ops.length} → ${ops[ops.length - 1].id}`);
+
+    if (ops.length < 100) return;
+  }
+}
+
 async function main() {
   console.log('Indexer starting');
   console.log(`  TzKT:             ${TZKT_API}`);
@@ -211,6 +246,7 @@ async function main() {
     try {
       await pollBigmaps(ptrs);
       await pollVoteOps();
+      await pollPetitionVoteOps();
     } catch (e) {
       console.error('Poll error:', e.message);
     }

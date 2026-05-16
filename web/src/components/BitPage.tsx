@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronUp, ChevronDown, Flag, MessageCircle } from 'lucide-react';
+import { ChevronUp, ChevronDown, Flag, MessageCircle, Loader2 } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
 import type { Config, BitDetail } from '../api';
 import { getBit, postContent } from '../api';
 import {
-  voteBit, sendCreateBit, sendCreateModContentAddPetition,
+  sendVoteBit, sendCreateBit, sendCreateModContentAddPetition,
   ensureRegistered,
 } from '../tezos';
 import { Compose } from './Compose';
@@ -16,7 +16,16 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
   const { bid } = useParams<{ bid: string }>();
   const [data, setData] = useState<BitDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const [activeOp, setActiveOp] = useState<{
+    kind: 'up' | 'down' | 'mod';
+    status?: string;
+    match?: (b: any) => boolean;
+    startedAt?: number;
+  } | null>(null);
+
+  function patchActiveOp(patch: Partial<NonNullable<typeof activeOp>>) {
+    setActiveOp(prev => prev ? { ...prev, ...patch } : null);
+  }
   const [err, setErr] = useState('');
   const [notice, setNotice] = useState('');
   const [replying, setReplying] = useState(false);
@@ -27,14 +36,14 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
     setPendingReplies(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
   }
 
-  const isWatching = pendingReplies.some(p => Boolean(p.match));
+  const isWatching = pendingReplies.some(p => Boolean(p.match)) || Boolean(activeOp?.match);
 
   useEffect(() => {
     if (!bid) return;
     let cancelled = false;
     const tick = async () => {
       try {
-        const fresh = await getBit(bid);
+        const fresh = await getBit(bid, address);
         if (cancelled || !fresh) return;
         setData(fresh);
         setLoading(false);
@@ -46,6 +55,12 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
           }
           return [p];
         }));
+        setActiveOp(prev => {
+          if (!prev?.match) return prev;
+          if (prev.match(fresh.bit)) return null;
+          if (prev.startedAt && Date.now() - prev.startedAt > 80_000) return null;
+          return prev;
+        });
       } catch (e) {
         if (!cancelled) console.error('poll error', e);
       }
@@ -56,26 +71,38 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
   }, [bid, isWatching]);
 
   async function vote(dir: boolean) {
-    if (!bid) return;
-    setBusy(true); setErr('');
+    if (!bid || !data) return;
+    const beforeYay = data.bit.yay;
+    const beforeNay = data.bit.nay;
+    setActiveOp({ kind: dir ? 'up' : 'down', status: 'preparing…' }); setErr('');
     try {
-      await ensureRegistered(tezos, cfg, address);
-      await voteBit(tezos, cfg, bid, dir, 1);
-    } catch (e: any) { setErr(e.message ?? String(e)); }
-    finally { setBusy(false); }
+      await ensureRegistered(tezos, cfg, address, s => patchActiveOp({ status: s }));
+      patchActiveOp({ status: 'signing transaction…' });
+      const op = await sendVoteBit(tezos, cfg, bid, dir, 1);
+      patchActiveOp({ status: `in mempool (${op.hash.slice(0, 10)}…)` });
+      await op.confirmation();
+      setActiveOp({
+        kind: dir ? 'up' : 'down',
+        status: 'waiting for indexer…',
+        match: (b: any) => b.yay !== beforeYay || b.nay !== beforeNay,
+        startedAt: Date.now(),
+      });
+    } catch (e: any) { setErr(e.message ?? String(e)); setActiveOp(null); }
   }
 
   async function moderate() {
     if (!data) return;
     if (!confirm(`Propose moderation for this Bit? Costs PetitionContentModerationAddCost.`)) return;
-    setBusy(true); setErr('');
+    setActiveOp({ kind: 'mod', status: 'preparing…' }); setErr('');
     try {
-      await ensureRegistered(tezos, cfg, address);
+      await ensureRegistered(tezos, cfg, address, s => patchActiveOp({ status: s }));
+      patchActiveOp({ status: 'signing transaction…' });
       const op = await sendCreateModContentAddPetition(tezos, cfg, data.bit.content_hash);
+      patchActiveOp({ status: `in mempool (${op.hash.slice(0, 10)}…)` });
       await op.confirmation();
       setNotice('moderation petition created. switch to the petitions page to vote.');
     } catch (e: any) { setErr(e.message ?? String(e)); }
-    finally { setBusy(false); }
+    finally { setActiveOp(null); }
   }
 
   async function handleReply(text: string) {
@@ -163,10 +190,32 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
           )}
         </div>
         <div className="footer">
-          <button onClick={() => vote(true)} disabled={busy}><ChevronUp size={14} /> {b.yay}</button>
-          <button onClick={() => vote(false)} disabled={busy} className="secondary"><ChevronDown size={14} /> {b.nay}</button>
-          <button onClick={() => setReplying(r => !r)} disabled={busy} className="secondary"><MessageCircle size={14} /> reply</button>
-          <button onClick={moderate} disabled={busy} className="secondary" title="propose to moderate this bit"><Flag size={14} /></button>
+          <button
+            onClick={() => vote(true)}
+            disabled={activeOp !== null || b.my_vote === 'up'}
+            title={b.my_vote === 'up' ? 'you already voted up' : undefined}
+          >
+            {activeOp?.kind === 'up' ? <Loader2 size={14} className="spinner" /> : <ChevronUp size={14} />}
+            {b.yay}
+          </button>
+          <button
+            onClick={() => vote(false)}
+            disabled={activeOp !== null || b.my_vote === 'down'}
+            className="secondary"
+            title={b.my_vote === 'down' ? 'you already voted down' : undefined}
+          >
+            {activeOp?.kind === 'down' ? <Loader2 size={14} className="spinner" /> : <ChevronDown size={14} />}
+            {b.nay}
+          </button>
+          <button onClick={() => setReplying(r => !r)} disabled={activeOp !== null} className="secondary">
+            <MessageCircle size={14} /> reply
+          </button>
+          <button onClick={moderate} disabled={activeOp !== null} className="secondary" title="propose to moderate this bit">
+            {activeOp?.kind === 'mod' ? <Loader2 size={14} className="spinner" /> : <Flag size={14} />}
+          </button>
+          {activeOp?.status && (
+            <span className="muted" style={{ fontStyle: 'italic' }}>{activeOp.status}</span>
+          )}
         </div>
         <div className="muted" style={{ fontSize: 12, fontFamily: 'monospace', marginTop: 12, lineHeight: 1.5, wordBreak: 'break-all' }}>
           <div>bid:&nbsp; {b.bid}</div>

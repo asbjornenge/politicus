@@ -12,6 +12,7 @@ export type Bit = {
   nay: number;
   content_moderated: boolean;
   creator_moderated: boolean;
+  my_vote: 'up' | 'down' | null;
 };
 
 export type Config = {
@@ -39,6 +40,7 @@ export type Petition = {
   unique_voters: number;
   resolved: boolean;
   passed: boolean;
+  my_vote: 'up' | 'down' | null;
 };
 
 export async function getConfig(): Promise<Config> {
@@ -57,8 +59,9 @@ export async function postContent(body: string, contentType = 'text/plain'): Pro
   return hash;
 }
 
-export async function listBits(): Promise<Bit[]> {
-  const r = await fetch('/api/bits');
+export async function listBits(viewer?: string): Promise<Bit[]> {
+  const q = viewer ? `?viewer=${viewer}` : '';
+  const r = await fetch(`/api/bits${q}`);
   const { bits } = await r.json();
   return bits;
 }
@@ -70,21 +73,24 @@ export type BitDetail = {
   votes: Array<{ voter: string; direction: boolean; votes: number; vote_time: string }>;
 };
 
-export async function getBit(bid: string): Promise<BitDetail | null> {
-  const r = await fetch(`/api/bits/${bid}`);
+export async function getBit(bid: string, viewer?: string): Promise<BitDetail | null> {
+  const q = viewer ? `?viewer=${viewer}` : '';
+  const r = await fetch(`/api/bits/${bid}${q}`);
   if (!r.ok) return null;
   return r.json();
 }
 
-export async function getPetition(pid: string): Promise<Petition | null> {
-  const r = await fetch(`/api/petitions/${pid}`);
+export async function getPetition(pid: string, viewer?: string): Promise<Petition | null> {
+  const q = viewer ? `?viewer=${viewer}` : '';
+  const r = await fetch(`/api/petitions/${pid}${q}`);
   if (!r.ok) return null;
   const { petition } = await r.json();
   return petition;
 }
 
-export async function listPetitions(): Promise<Petition[]> {
-  const r = await fetch('/api/petitions');
+export async function listPetitions(viewer?: string): Promise<Petition[]> {
+  const q = viewer ? `?viewer=${viewer}` : '';
+  const r = await fetch(`/api/petitions${q}`);
   const { petitions } = await r.json();
   return petitions;
 }

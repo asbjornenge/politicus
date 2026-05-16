@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronUp, ChevronDown, Flag } from 'lucide-react';
+import { ChevronUp, ChevronDown, Flag, Loader2 } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
 import { listBits, postContent } from '../api';
 import type { Bit, Config } from '../api';
 import {
-  voteBit, sendCreateBit, sendCreateModContentAddPetition,
+  sendVoteBit, sendCreateBit, sendCreateModContentAddPetition,
   ensureRegistered,
 } from '../tezos';
 import { Compose } from './Compose';
@@ -22,7 +22,17 @@ function ContentPreview({ text }: { text: string; bid: string }) {
 export function Feed({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config; address: string }) {
   const [bits, setBits] = useState<Bit[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [activeOp, setActiveOp] = useState<{
+    bid: string;
+    kind: 'up' | 'down' | 'mod';
+    status?: string;
+    match?: (b: Bit) => boolean;
+    startedAt?: number;
+  } | null>(null);
+
+  function patchActiveOp(patch: Partial<NonNullable<typeof activeOp>>) {
+    setActiveOp(prev => prev ? { ...prev, ...patch } : null);
+  }
   const [notice, setNotice] = useState('');
   const [pending, setPending] = useState<PendingItem<Bit>[]>([]);
 
@@ -33,13 +43,13 @@ export function Feed({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config
     setPending(prev => prev.filter(p => p.id !== id));
   }
 
-  const isWatching = pending.some(p => Boolean(p.match));
+  const isWatching = pending.some(p => Boolean(p.match)) || Boolean(activeOp?.match);
 
   useEffect(() => {
     let cancelled = false;
     const tick = async () => {
       try {
-        const fresh = await listBits();
+        const fresh = await listBits(address);
         if (cancelled) return;
         setBits(fresh);
         setLoading(false);
@@ -51,6 +61,12 @@ export function Feed({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config
           }
           return [p];
         }));
+        setActiveOp(prev => {
+          if (!prev?.match) return prev;
+          if (fresh.some(prev.match)) return null;
+          if (prev.startedAt && Date.now() - prev.startedAt > 80_000) return null;
+          return prev;
+        });
       } catch (e) {
         if (!cancelled) console.error('poll error', e);
       }
@@ -89,29 +105,43 @@ export function Feed({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config
   }
 
   async function vote(bid: string, dir: boolean) {
-    setBusy(bid);
+    const before = bits.find(b => b.bid === bid);
+    const beforeYay = before?.yay ?? 0;
+    const beforeNay = before?.nay ?? 0;
+    setActiveOp({ bid, kind: dir ? 'up' : 'down', status: 'preparing…' });
     try {
-      await ensureRegistered(tezos, cfg, address);
-      await voteBit(tezos, cfg, bid, dir, 1);
+      await ensureRegistered(tezos, cfg, address, s => patchActiveOp({ status: s }));
+      patchActiveOp({ status: 'signing transaction…' });
+      const op = await sendVoteBit(tezos, cfg, bid, dir, 1);
+      patchActiveOp({ status: `in mempool (${op.hash.slice(0, 10)}…)` });
+      await op.confirmation();
+      setActiveOp({
+        bid,
+        kind: dir ? 'up' : 'down',
+        status: 'waiting for indexer…',
+        match: (b: Bit) => b.bid === bid && (b.yay !== beforeYay || b.nay !== beforeNay),
+        startedAt: Date.now(),
+      });
     } catch (e: any) {
       alert(e.message ?? String(e));
-    } finally {
-      setBusy(null);
+      setActiveOp(null);
     }
   }
 
   async function moderate(bit: Bit) {
     if (!confirm(`Propose moderation for this Bit?\n\nThis creates a petition. Costs PetitionContentModerationAddCost.`)) return;
-    setBusy(bit.bid); setNotice('');
+    setActiveOp({ bid: bit.bid, kind: 'mod', status: 'preparing…' }); setNotice('');
     try {
-      await ensureRegistered(tezos, cfg, address);
+      await ensureRegistered(tezos, cfg, address, s => patchActiveOp({ status: s }));
+      patchActiveOp({ status: 'signing transaction…' });
       const op = await sendCreateModContentAddPetition(tezos, cfg, bit.content_hash);
+      patchActiveOp({ status: `in mempool (${op.hash.slice(0, 10)}…)` });
       await op.confirmation();
       setNotice('moderation petition created. switch to the petitions tab to vote and resolve.');
+      setActiveOp(null);
     } catch (e: any) {
       alert(e.message ?? String(e));
-    } finally {
-      setBusy(null);
+      setActiveOp(null);
     }
   }
 
@@ -148,13 +178,33 @@ export function Feed({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config
             )}
           </div>
           <div className="footer">
-            <button onClick={() => vote(b.bid, true)} disabled={busy === b.bid}><ChevronUp size={14} /> {b.yay}</button>
-            <button onClick={() => vote(b.bid, false)} disabled={busy === b.bid} className="secondary"><ChevronDown size={14} /> {b.nay}</button>
-            <button onClick={() => moderate(b)} disabled={busy === b.bid} className="secondary" title="propose to moderate this bit"><Flag size={14} /></button>
+            <button
+              onClick={() => vote(b.bid, true)}
+              disabled={activeOp?.bid === b.bid || b.my_vote === 'up'}
+              title={b.my_vote === 'up' ? 'you already voted up' : undefined}
+            >
+              {activeOp?.bid === b.bid && activeOp.kind === 'up' ? <Loader2 size={14} className="spinner" /> : <ChevronUp size={14} />}
+              {b.yay}
+            </button>
+            <button
+              onClick={() => vote(b.bid, false)}
+              disabled={activeOp?.bid === b.bid || b.my_vote === 'down'}
+              className="secondary"
+              title={b.my_vote === 'down' ? 'you already voted down' : undefined}
+            >
+              {activeOp?.bid === b.bid && activeOp.kind === 'down' ? <Loader2 size={14} className="spinner" /> : <ChevronDown size={14} />}
+              {b.nay}
+            </button>
+            <button onClick={() => moderate(b)} disabled={activeOp?.bid === b.bid} className="secondary" title="propose to moderate this bit">
+              {activeOp?.bid === b.bid && activeOp.kind === 'mod' ? <Loader2 size={14} className="spinner" /> : <Flag size={14} />}
+            </button>
+            {activeOp?.bid === b.bid && activeOp.status && (
+              <span className="muted" style={{ fontStyle: 'italic' }}>{activeOp.status}</span>
+            )}
             <Link
               to={`/bit/${b.bid}`}
               className="muted"
-              style={{ fontFamily: 'monospace', textDecoration: 'none' }}
+              style={{ fontFamily: 'monospace', textDecoration: 'none', marginLeft: 'auto' }}
               title="open bit page"
             >
               {b.bid.slice(0, 12)}…

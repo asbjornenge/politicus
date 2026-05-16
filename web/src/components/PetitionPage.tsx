@@ -1,55 +1,88 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronUp, ChevronDown, Check, X as XIcon } from 'lucide-react';
+import { ChevronUp, ChevronDown, Check, X as XIcon, Loader2 } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
 import type { Config, Petition } from '../api';
 import { getPetition } from '../api';
-import { votePetition, resolvePetition, isUserRegistered, registerUser } from '../tezos';
+import { sendVotePetition, sendResolvePetition, ensureRegistered } from '../tezos';
 import { KERNEL_VARS, formatValue } from '../kernelVars';
 
 export function PetitionPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config; address: string }) {
   const { pid } = useParams<{ pid: string }>();
   const [p, setP] = useState<Petition | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const [activeOp, setActiveOp] = useState<{
+    kind: 'up' | 'down' | 'resolve';
+    status?: string;
+    match?: (p: Petition) => boolean;
+    startedAt?: number;
+  } | null>(null);
+
+  function patchActiveOp(patch: Partial<NonNullable<typeof activeOp>>) {
+    setActiveOp(prev => prev ? { ...prev, ...patch } : null);
+  }
   const [err, setErr] = useState('');
 
-  async function reload() {
+  const isWatching = Boolean(activeOp?.match);
+
+  useEffect(() => {
     if (!pid) return;
-    setLoading(true);
-    try { setP(await getPetition(pid)); }
-    finally { setLoading(false); }
-  }
-
-  useEffect(() => { reload(); }, [pid]);
-
-  async function ensureRegistered() {
-    const r = await isUserRegistered(tezos, cfg, address);
-    if (!r) {
-      const placeholderHash = `00${address.slice(-62)}`.padStart(64, '0');
-      await registerUser(tezos, cfg, { brightidHash: placeholderHash, username: address.slice(0, 8), bio: '' });
-    }
-  }
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const fresh = await getPetition(pid, address);
+        if (cancelled) return;
+        setP(fresh);
+        setLoading(false);
+        setActiveOp(prev => {
+          if (!prev?.match || !fresh) return prev;
+          if (prev.match(fresh)) return null;
+          if (prev.startedAt && Date.now() - prev.startedAt > 80_000) return null;
+          return prev;
+        });
+      } catch (e) {
+        if (!cancelled) console.error('poll error', e);
+      }
+    };
+    tick();
+    const handle = setInterval(tick, isWatching ? 2000 : 8000);
+    return () => { cancelled = true; clearInterval(handle); };
+  }, [pid, isWatching]);
 
   async function vote(dir: boolean) {
-    if (!pid) return;
-    setBusy(true); setErr('');
+    if (!pid || !p) return;
+    const beforeYay = p.yay;
+    const beforeNay = p.nay;
+    setActiveOp({ kind: dir ? 'up' : 'down', status: 'preparing…' }); setErr('');
     try {
-      await ensureRegistered();
-      await votePetition(tezos, cfg, pid, dir, 1);
-      await reload();
-    } catch (e: any) { setErr(e.message ?? String(e)); }
-    finally { setBusy(false); }
+      await ensureRegistered(tezos, cfg, address, s => patchActiveOp({ status: s }));
+      patchActiveOp({ status: 'signing transaction…' });
+      const op = await sendVotePetition(tezos, cfg, pid, dir, 1);
+      patchActiveOp({ status: `in mempool (${op.hash.slice(0, 10)}…)` });
+      await op.confirmation();
+      setActiveOp({
+        kind: dir ? 'up' : 'down',
+        status: 'waiting for indexer…',
+        match: (px: Petition) => px.yay !== beforeYay || px.nay !== beforeNay,
+        startedAt: Date.now(),
+      });
+    } catch (e: any) { setErr(e.message ?? String(e)); setActiveOp(null); }
   }
 
   async function resolve() {
     if (!pid) return;
-    setBusy(true); setErr('');
+    setActiveOp({ kind: 'resolve', status: 'signing transaction…' }); setErr('');
     try {
-      await resolvePetition(tezos, cfg, pid);
-      await reload();
-    } catch (e: any) { setErr(e.message ?? String(e)); }
-    finally { setBusy(false); }
+      const op = await sendResolvePetition(tezos, cfg, pid);
+      patchActiveOp({ status: `in mempool (${op.hash.slice(0, 10)}…)` });
+      await op.confirmation();
+      setActiveOp({
+        kind: 'resolve',
+        status: 'waiting for indexer…',
+        match: (px: Petition) => px.resolved,
+        startedAt: Date.now(),
+      });
+    } catch (e: any) { setErr(e.message ?? String(e)); setActiveOp(null); }
   }
 
   if (loading) return <p className="muted">loading…</p>;
@@ -84,15 +117,38 @@ export function PetitionPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg
         <div className="footer">
           {isOpen && (
             <>
-              <button onClick={() => vote(true)} disabled={busy}><ChevronUp size={14} /> {p.yay}</button>
-              <button onClick={() => vote(false)} disabled={busy} className="secondary"><ChevronDown size={14} /> {p.nay}</button>
+              <button
+                onClick={() => vote(true)}
+                disabled={activeOp !== null || p.my_vote === 'up'}
+                title={p.my_vote === 'up' ? 'you already voted up' : undefined}
+              >
+                {activeOp?.kind === 'up' ? <Loader2 size={14} className="spinner" /> : <ChevronUp size={14} />}
+                {p.yay}
+              </button>
+              <button
+                onClick={() => vote(false)}
+                disabled={activeOp !== null || p.my_vote === 'down'}
+                className="secondary"
+                title={p.my_vote === 'down' ? 'you already voted down' : undefined}
+              >
+                {activeOp?.kind === 'down' ? <Loader2 size={14} className="spinner" /> : <ChevronDown size={14} />}
+                {p.nay}
+              </button>
               <span className="muted">closes in ~{minsLeft}m</span>
             </>
           )}
           {!isOpen && (
             <span className="muted">yay {p.yay} / nay {p.nay} · {p.unique_voters} voters</span>
           )}
-          {canResolve && <button onClick={resolve} disabled={busy}>{busy ? '…' : 'resolve'}</button>}
+          {canResolve && (
+            <button onClick={resolve} disabled={activeOp !== null}>
+              {activeOp?.kind === 'resolve' && <Loader2 size={14} className="spinner" />}
+              resolve
+            </button>
+          )}
+          {activeOp?.status && (
+            <span className="muted" style={{ fontStyle: 'italic' }}>{activeOp.status}</span>
+          )}
         </div>
         {err && <div className="error" style={{ marginTop: 10 }}>{err}</div>}
         <div className="muted" style={{ fontSize: 12, fontFamily: 'monospace', marginTop: 12, lineHeight: 1.5, wordBreak: 'break-all' }}>
