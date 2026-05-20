@@ -7,7 +7,12 @@ import { getPetition } from '../api';
 import { sendVotePetition, sendResolvePetition, ensureRegistered } from '../tezos';
 import { KERNEL_VARS, formatValue } from '../kernelVars';
 
-export function PetitionPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config; address: string }) {
+export function PetitionPage({ tezos, cfg, address, requestWallet }: {
+  tezos: TezosToolkit | null;
+  cfg: Config;
+  address: string | null;
+  requestWallet: () => void;
+}) {
   const { pid } = useParams<{ pid: string }>();
   const [p, setP] = useState<Petition | null>(null);
   const [loading, setLoading] = useState(true);
@@ -30,7 +35,7 @@ export function PetitionPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg
     let cancelled = false;
     const tick = async () => {
       try {
-        const fresh = await getPetition(pid, address);
+        const fresh = await getPetition(pid, address ?? undefined);
         if (cancelled) return;
         setP(fresh);
         setLoading(false);
@@ -51,6 +56,7 @@ export function PetitionPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg
 
   async function vote(dir: boolean) {
     if (!pid || !p) return;
+    if (!tezos || !address) { requestWallet(); return; }
     const beforeYay = p.yay;
     const beforeNay = p.nay;
     setActiveOp({ kind: dir ? 'up' : 'down', status: 'preparing…' }); setErr('');
@@ -71,6 +77,7 @@ export function PetitionPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg
 
   async function resolve() {
     if (!pid) return;
+    if (!tezos) { requestWallet(); return; }
     setActiveOp({ kind: 'resolve', status: 'signing transaction…' }); setErr('');
     try {
       const op = await sendResolvePetition(tezos, cfg, pid);

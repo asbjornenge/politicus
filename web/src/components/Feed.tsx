@@ -12,7 +12,12 @@ import { Compose } from './Compose';
 import { PendingPost, type PendingItem } from './PendingPost';
 import { Markdown } from './Markdown';
 
-export function Feed({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config; address: string }) {
+export function Feed({ tezos, cfg, address, requestWallet }: {
+  tezos: TezosToolkit | null;
+  cfg: Config;
+  address: string | null;
+  requestWallet: () => void;
+}) {
   const [bits, setBits] = useState<Bit[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeOp, setActiveOp] = useState<{
@@ -42,7 +47,7 @@ export function Feed({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config
     let cancelled = false;
     const tick = async () => {
       try {
-        const fresh = await listBits(address);
+        const fresh = await listBits(address ?? undefined);
         if (cancelled) return;
         setBits(fresh);
         setLoading(false);
@@ -70,6 +75,7 @@ export function Feed({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config
   }, [isWatching]);
 
   async function handleSubmit(text: string) {
+    if (!tezos || !address) { requestWallet(); return; }
     const id = crypto.randomUUID();
     setPending(prev => [{ id, text, status: 'preparing…' }, ...prev]);
 
@@ -98,6 +104,7 @@ export function Feed({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config
   }
 
   async function vote(bid: string, dir: boolean) {
+    if (!tezos || !address) { requestWallet(); return; }
     const before = bits.find(b => b.bid === bid);
     const beforeYay = before?.yay ?? 0;
     const beforeNay = before?.nay ?? 0;
@@ -122,6 +129,7 @@ export function Feed({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config
   }
 
   async function moderate(bit: Bit) {
+    if (!tezos || !address) { requestWallet(); return; }
     if (!confirm(`Propose moderation for this Bit?\n\nThis creates a petition. Costs PetitionContentModerationAddCost.`)) return;
     setActiveOp({ bid: bit.bid, kind: 'mod', status: 'preparing…' }); setNotice('');
     try {
@@ -140,7 +148,14 @@ export function Feed({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config
 
   return (
     <div>
-      <Compose onSubmit={handleSubmit} />
+      {tezos && address ? (
+        <Compose onSubmit={handleSubmit} />
+      ) : (
+        <div className="compose" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span className="muted">Sign in to post a bit</span>
+          <button onClick={requestWallet}>Join</button>
+        </div>
+      )}
       {notice && <div className="success" style={{ marginBottom: 12 }}>{notice}</div>}
       {pending.map(p => (
         <PendingPost key={p.id} item={p} onDismiss={() => removePending(p.id)} />

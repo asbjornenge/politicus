@@ -43,6 +43,14 @@ export async function registerUser(
   return op.hash;
 }
 
+export async function placeholderBrightIdHash(address: string): Promise<string> {
+  const data = new TextEncoder().encode(`politicus-placeholder-${address}`);
+  const buffer = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 export async function ensureRegistered(
   tezos: TezosToolkit,
   cfg: Config,
@@ -52,7 +60,7 @@ export async function ensureRegistered(
   const r = await isUserRegistered(tezos, cfg, address);
   if (r) return;
   onProgress?.('registering anonymously…');
-  const placeholderHash = `00${address.slice(-62)}`.padStart(64, '0');
+  const placeholderHash = await placeholderBrightIdHash(address);
   const c = await tezos.contract.at(cfg.contracts.IdentityRegistry);
   const op = await c.methodsObject
     .register({ 0: placeholderHash, 1: address.slice(0, 8), 2: '' })

@@ -16,10 +16,12 @@ export function Petitions({
   tezos,
   cfg,
   address,
+  requestWallet,
 }: {
-  tezos: TezosToolkit;
+  tezos: TezosToolkit | null;
   cfg: Config;
-  address: string;
+  address: string | null;
+  requestWallet: () => void;
 }) {
   const [petitions, setPetitions] = useState<Petition[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +47,7 @@ export function Petitions({
   }
 
   async function reload() {
-    setPetitions(await listPetitions(address));
+    setPetitions(await listPetitions(address ?? undefined));
   }
 
   const isWatching = pending.some(p => Boolean(p.match)) || Boolean(activeOp?.match);
@@ -54,7 +56,7 @@ export function Petitions({
     let cancelled = false;
     const tick = async () => {
       try {
-        const fresh = await listPetitions(address);
+        const fresh = await listPetitions(address ?? undefined);
         if (cancelled) return;
         setPetitions(fresh);
         setLoading(false);
@@ -82,6 +84,7 @@ export function Petitions({
   }, [isWatching]);
 
   async function vote(pid: string, dir: boolean) {
+    if (!tezos || !address) { requestWallet(); return; }
     const before = petitions.find(p => p.pid === pid);
     const beforeYay = before?.yay ?? 0;
     const beforeNay = before?.nay ?? 0;
@@ -105,6 +108,7 @@ export function Petitions({
   }
 
   async function resolve(pid: string) {
+    if (!tezos) { requestWallet(); return; }
     setActiveOp({ pid, kind: 'resolve', status: 'signing transaction…' }); setErr('');
     try {
       const op = await sendResolvePetition(tezos, cfg, pid);
@@ -123,6 +127,7 @@ export function Petitions({
   }
 
   async function handleCreate(key: string, value: number) {
+    if (!tezos || !address) { requestWallet(); return; }
     const id = crypto.randomUUID();
     setPending(prev => [{ id, text: `${key} → ${value}`, status: 'preparing…' }, ...prev]);
     try {
@@ -148,7 +153,14 @@ export function Petitions({
 
   return (
     <div>
-      <CreatePetition tezos={tezos} cfg={cfg} onCreate={handleCreate} />
+      {tezos && address ? (
+        <CreatePetition tezos={tezos} cfg={cfg} onCreate={handleCreate} />
+      ) : (
+        <div className="compose" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span className="muted">Sign in to propose a kernel change</span>
+          <button onClick={requestWallet}>Join</button>
+        </div>
+      )}
       {err && <div className="error">{err}</div>}
       {pending.map(p => (
         <PendingPost key={p.id} item={p} onDismiss={() => removePending(p.id)} />

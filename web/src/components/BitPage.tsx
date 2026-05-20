@@ -13,7 +13,12 @@ import { PendingPost, type PendingItem } from './PendingPost';
 import { Markdown } from './Markdown';
 
 
-export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Config; address: string }) {
+export function BitPage({ tezos, cfg, address, requestWallet }: {
+  tezos: TezosToolkit | null;
+  cfg: Config;
+  address: string | null;
+  requestWallet: () => void;
+}) {
   const { bid } = useParams<{ bid: string }>();
   const [data, setData] = useState<BitDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,7 +49,7 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
     let cancelled = false;
     const tick = async () => {
       try {
-        const fresh = await getBit(bid, address);
+        const fresh = await getBit(bid, address ?? undefined);
         if (cancelled || !fresh) return;
         setData(fresh);
         setLoading(false);
@@ -73,6 +78,7 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
 
   async function vote(dir: boolean) {
     if (!bid || !data) return;
+    if (!tezos || !address) { requestWallet(); return; }
     const beforeYay = data.bit.yay;
     const beforeNay = data.bit.nay;
     setActiveOp({ kind: dir ? 'up' : 'down', status: 'preparing…' }); setErr('');
@@ -93,6 +99,7 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
 
   async function moderate() {
     if (!data) return;
+    if (!tezos || !address) { requestWallet(); return; }
     if (!confirm(`Propose moderation for this Bit? Costs PetitionContentModerationAddCost.`)) return;
     setActiveOp({ kind: 'mod', status: 'preparing…' }); setErr('');
     try {
@@ -108,6 +115,7 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
 
   async function handleReply(text: string) {
     if (!bid || !data) return;
+    if (!tezos || !address) { requestWallet(); return; }
     const id = crypto.randomUUID();
     setReplying(false);
     setPendingReplies(prev => [...prev, { id, text, status: 'preparing…' }]);
@@ -220,7 +228,14 @@ export function BitPage({ tezos, cfg, address }: { tezos: TezosToolkit; cfg: Con
             {activeOp?.kind === 'down' ? <Loader2 size={14} className="spinner" /> : <ChevronDown size={14} />}
             {b.nay}
           </button>
-          <button onClick={() => setReplying(r => !r)} disabled={activeOp !== null} className="secondary">
+          <button
+            onClick={() => {
+              if (!tezos || !address) { requestWallet(); return; }
+              setReplying(r => !r);
+            }}
+            disabled={activeOp !== null}
+            className="secondary"
+          >
             <MessageCircle size={14} /> reply
           </button>
           <button onClick={moderate} disabled={activeOp !== null} className="secondary" title="propose to moderate this bit">
