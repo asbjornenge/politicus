@@ -5,3 +5,5 @@ node_modules/
 artifacts/
 .ligo/
 web/dist/
+.mcp.json
+.claude
