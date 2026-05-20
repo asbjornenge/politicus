@@ -104,26 +104,31 @@ input, textarea, select, button {
 }
 
 button {
-  background: #4a5fd6;
-  color: white;
-  border: none;
-  border-radius: 6px;
+  background: #2e3a52;
+  color: #e8e4d8;
+  border: 1px solid #2e3a52;
+  border-radius: 4px;
   padding: 6px 12px;
+  font-family: inherit;
+  font-weight: 500;
   font-size: 13px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
-button:hover { background: #5a6fe6; }
+button:hover { background: #3b4866; border-color: #3b4866; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 button.secondary {
   background: transparent;
   border: 1px solid #3a3a45;
-  color: #aaa;
+  color: #b8b3a4;
+  font-weight: 400;
 }
+
+button.secondary:hover { background: rgba(255,255,255,0.04); border-color: #4a4a55; }
 
 .bit {
   border: 1px solid #2a2a32;
