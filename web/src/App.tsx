@@ -57,7 +57,14 @@ export default function App() {
   return (
     <HashRouter>
       <header>
-        <h1><NavLink to="/" style={{ color: 'inherit', textDecoration: 'none' }}>politicus</NavLink></h1>
+        <NavLink to="/" className="brand" style={{ color: 'inherit', textDecoration: 'none' }}>
+          <img src="/seal.png" alt="" className="brand-mark" />
+          <div className="brand-text">
+            <h1>politicus</h1>
+            <hr className="brand-rule" />
+            <p className="tagline">Signed, civic, durable.</p>
+          </div>
+        </NavLink>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {address ? (
             <>
