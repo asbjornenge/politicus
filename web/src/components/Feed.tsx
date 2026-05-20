@@ -11,6 +11,7 @@ import {
 import { Compose } from './Compose';
 import { PendingPost, type PendingItem } from './PendingPost';
 import { Markdown } from './Markdown';
+import { formatBitDate } from '../utils';
 
 export function Feed({ tezos, cfg, address, requestWallet }: {
   tezos: TezosToolkit | null;
@@ -168,7 +169,7 @@ export function Feed({ tezos, cfg, address, requestWallet }: {
             <Link to={`/user/${b.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
               {b.creator_username ?? b.creator.slice(0, 12) + '…'}
             </Link>
-            <span>{new Date(b.creation_time).toLocaleString()}</span>
+            <span title={new Date(b.creation_time).toLocaleString()}>{formatBitDate(b.creation_time)}</span>
           </div>
           <div className="content">
             {b.content_moderated ? (
@@ -189,6 +190,7 @@ export function Feed({ tezos, cfg, address, requestWallet }: {
             <button
               onClick={() => vote(b.bid, true)}
               disabled={activeOp?.bid === b.bid || b.my_vote === 'up'}
+              className={b.my_vote === 'up' ? 'voted' : ''}
               title={b.my_vote === 'up' ? 'you already voted up' : undefined}
             >
               {activeOp?.bid === b.bid && activeOp.kind === 'up' ? <Loader2 size={14} className="spinner" /> : <ChevronUp size={14} />}
@@ -197,13 +199,13 @@ export function Feed({ tezos, cfg, address, requestWallet }: {
             <button
               onClick={() => vote(b.bid, false)}
               disabled={activeOp?.bid === b.bid || b.my_vote === 'down'}
-              className="secondary"
+              className={b.my_vote === 'down' ? 'voted' : ''}
               title={b.my_vote === 'down' ? 'you already voted down' : undefined}
             >
               {activeOp?.bid === b.bid && activeOp.kind === 'down' ? <Loader2 size={14} className="spinner" /> : <ChevronDown size={14} />}
               {b.nay}
             </button>
-            <button onClick={() => moderate(b)} disabled={activeOp?.bid === b.bid} className="secondary" title="propose to moderate this bit">
+            <button onClick={() => moderate(b)} disabled={activeOp?.bid === b.bid} title="propose to moderate this bit">
               {activeOp?.bid === b.bid && activeOp.kind === 'mod' ? <Loader2 size={14} className="spinner" /> : <Flag size={14} />}
             </button>
             {activeOp?.bid === b.bid && activeOp.status && (

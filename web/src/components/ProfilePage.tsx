@@ -5,6 +5,7 @@ import type { TezosToolkit } from '@taquito/taquito';
 import type { Config, Bit, User } from '../api';
 import { getUser } from '../api';
 import { updateProfile, registerUser, placeholderBrightIdHash, loadSecretKey } from '../tezos';
+import { formatBitDate } from '../utils';
 import { Markdown } from './Markdown';
 
 export function ProfilePage({ tezos, cfg, address }: {
@@ -86,7 +87,7 @@ export function ProfilePage({ tezos, cfg, address }: {
         <Link key={b.bid} to={`/bit/${b.bid}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
           <div className="bit">
             <div className="meta">
-              <span>{new Date(b.creation_time).toLocaleString()}</span>
+              <span title={new Date(b.creation_time).toLocaleString()}>{formatBitDate(b.creation_time)}</span>
               <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 <ChevronUp size={14} /> {b.yay} <ChevronDown size={14} /> {b.nay}
               </span>

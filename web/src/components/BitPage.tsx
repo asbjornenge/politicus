@@ -11,6 +11,7 @@ import {
 import { Compose } from './Compose';
 import { PendingPost, type PendingItem } from './PendingPost';
 import { Markdown } from './Markdown';
+import { formatBitDate } from '../utils';
 
 
 export function BitPage({ tezos, cfg, address, requestWallet }: {
@@ -167,7 +168,7 @@ export function BitPage({ tezos, cfg, address, requestWallet }: {
                 <Link to={`/user/${a.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
                   {a.creator_username ?? a.creator.slice(0, 12) + '…'}
                 </Link>
-                <span>{new Date(a.creation_time).toLocaleString()}</span>
+                <span title={new Date(a.creation_time).toLocaleString()}>{formatBitDate(a.creation_time)}</span>
               </div>
               <div className="content">
                 {a.content_moderated ? (
@@ -197,7 +198,7 @@ export function BitPage({ tezos, cfg, address, requestWallet }: {
           <Link to={`/user/${b.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
             {b.creator_username ?? b.creator.slice(0, 16) + '…'}
           </Link>
-          <span>{new Date(b.creation_time).toLocaleString()}</span>
+          <span title={new Date(b.creation_time).toLocaleString()}>{formatBitDate(b.creation_time)}</span>
         </div>
         <div className="content" style={{ fontSize: 16 }}>
           {b.content_moderated ? (
@@ -214,6 +215,7 @@ export function BitPage({ tezos, cfg, address, requestWallet }: {
           <button
             onClick={() => vote(true)}
             disabled={activeOp !== null || b.my_vote === 'up'}
+            className={b.my_vote === 'up' ? 'voted' : ''}
             title={b.my_vote === 'up' ? 'you already voted up' : undefined}
           >
             {activeOp?.kind === 'up' ? <Loader2 size={14} className="spinner" /> : <ChevronUp size={14} />}
@@ -222,7 +224,7 @@ export function BitPage({ tezos, cfg, address, requestWallet }: {
           <button
             onClick={() => vote(false)}
             disabled={activeOp !== null || b.my_vote === 'down'}
-            className="secondary"
+            className={b.my_vote === 'down' ? 'voted' : ''}
             title={b.my_vote === 'down' ? 'you already voted down' : undefined}
           >
             {activeOp?.kind === 'down' ? <Loader2 size={14} className="spinner" /> : <ChevronDown size={14} />}
@@ -234,11 +236,10 @@ export function BitPage({ tezos, cfg, address, requestWallet }: {
               setReplying(r => !r);
             }}
             disabled={activeOp !== null}
-            className="secondary"
           >
             <MessageCircle size={14} /> reply
           </button>
-          <button onClick={moderate} disabled={activeOp !== null} className="secondary" title="propose to moderate this bit">
+          <button onClick={moderate} disabled={activeOp !== null} title="propose to moderate this bit">
             {activeOp?.kind === 'mod' ? <Loader2 size={14} className="spinner" /> : <Flag size={14} />}
           </button>
           {activeOp?.status && (
@@ -285,7 +286,7 @@ export function BitPage({ tezos, cfg, address, requestWallet }: {
                 <Link to={`/user/${r.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
                   {r.creator_username ?? r.creator.slice(0, 12) + '…'}
                 </Link>
-                <span>{new Date(r.creation_time).toLocaleString()}</span>
+                <span title={new Date(r.creation_time).toLocaleString()}>{formatBitDate(r.creation_time)}</span>
               </div>
               <div className="content">
                 {r.content_moderated ? (

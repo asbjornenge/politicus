@@ -127,6 +127,7 @@ export function PetitionPage({ tezos, cfg, address, requestWallet }: {
               <button
                 onClick={() => vote(true)}
                 disabled={activeOp !== null || p.my_vote === 'up'}
+                className={p.my_vote === 'up' ? 'voted' : ''}
                 title={p.my_vote === 'up' ? 'you already voted up' : undefined}
               >
                 {activeOp?.kind === 'up' ? <Loader2 size={14} className="spinner" /> : <ChevronUp size={14} />}
@@ -135,7 +136,7 @@ export function PetitionPage({ tezos, cfg, address, requestWallet }: {
               <button
                 onClick={() => vote(false)}
                 disabled={activeOp !== null || p.my_vote === 'down'}
-                className="secondary"
+                className={p.my_vote === 'down' ? 'voted' : ''}
                 title={p.my_vote === 'down' ? 'you already voted down' : undefined}
               >
                 {activeOp?.kind === 'down' ? <Loader2 size={14} className="spinner" /> : <ChevronDown size={14} />}

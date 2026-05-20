@@ -224,6 +224,7 @@ function PetitionRow({
             <button
               onClick={onYay}
               disabled={busy || p.my_vote === 'up'}
+              className={p.my_vote === 'up' ? 'voted' : ''}
               title={p.my_vote === 'up' ? 'you already voted up' : undefined}
             >
               {activeOp === 'up' ? <Loader2 size={14} className="spinner" /> : <ChevronUp size={14} />}
@@ -232,7 +233,7 @@ function PetitionRow({
             <button
               onClick={onNay}
               disabled={busy || p.my_vote === 'down'}
-              className="secondary"
+              className={p.my_vote === 'down' ? 'voted' : ''}
               title={p.my_vote === 'down' ? 'you already voted down' : undefined}
             >
               {activeOp === 'down' ? <Loader2 size={14} className="spinner" /> : <ChevronDown size={14} />}
