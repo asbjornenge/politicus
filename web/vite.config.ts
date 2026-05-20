@@ -8,9 +8,11 @@ export default defineConfig({
     nodePolyfills({ globals: { Buffer: true, global: true, process: true } }),
   ],
   server: {
+    host: '0.0.0.0',
     port: 5173,
+    allowedHosts: ['politicus.coder.surflabs.no', 'localhost'],
     proxy: {
-      '/api': 'http://localhost:8088',
+      '/api': process.env.VITE_API_TARGET ?? 'http://politicus.coder.surflabs.no',
     },
   },
 });

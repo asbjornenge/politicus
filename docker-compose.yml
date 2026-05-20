@@ -8,8 +8,6 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./db/migrations:/docker-entrypoint-initdb.d:ro
-    ports:
-      - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U politicus"]
       interval: 5s
@@ -28,8 +26,14 @@ services:
       BIT_REGISTRY: KT193vzUnno9keXoAgpCunscMUYUviREE96d
       PETITION_REGISTRY: KT1UEUHiDvszkQeRYNEexdTUgGxtfyaJ86xq
       MODERATION_REGISTRY: KT1PRAZuSK9gGBGukrtyuUwoVojhL9G6XyQU
-    ports:
-      - "8088:8080"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.politicus-api.rule=Host(`politicus.coder.surflabs.no`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.politicus-api.entrypoints=web"
+      - "traefik.http.services.politicus-api.loadbalancer.server.port=8080"
+    networks:
+      - proxy
+      - default
     depends_on:
       db:
         condition: service_healthy
@@ -48,5 +52,27 @@ services:
       db:
         condition: service_healthy
 
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.politicus.rule=Host(`politicus.coder.surflabs.no`)"
+      - "traefik.http.routers.politicus.entrypoints=web"
+      - "traefik.http.services.politicus.loadbalancer.server.port=5173"
+    networks:
+      - proxy
+      - default
+    depends_on:
+      - api
+
 volumes:
   db_data:
+
+networks:
+  proxy:
+    external: true
