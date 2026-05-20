@@ -163,7 +163,7 @@ export function BitPage({ tezos, cfg, address, requestWallet }: {
             </button>
           </div>
           {showThread && ancestors.map(a => (
-            <div key={a.bid} className="bit" style={{ borderLeft: '3px solid #3a3a45', opacity: 0.85 }}>
+            <div key={a.bid} className="bit" style={{ borderLeft: '3px solid var(--border-strong)', opacity: 0.85 }}>
               <div className="meta">
                 <Link to={`/user/${a.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
                   {a.creator_username ?? a.creator.slice(0, 12) + '…'}
@@ -180,12 +180,7 @@ export function BitPage({ tezos, cfg, address, requestWallet }: {
                 )}
               </div>
               <div className="footer">
-                <Link
-                  to={`/bit/${a.bid}`}
-                  className="muted"
-                  style={{ fontFamily: 'monospace', textDecoration: 'none', marginLeft: 'auto' }}
-                  title="open bit page"
-                >
+                <Link to={`/bit/${a.bid}`} className="bit-hash" title="open bit page">
                   {a.bid.slice(0, 12)}…
                 </Link>
               </div>
@@ -193,7 +188,7 @@ export function BitPage({ tezos, cfg, address, requestWallet }: {
           ))}
         </div>
       )}
-      <div className="bit" style={{ borderLeft: '3px solid #4a5fd6' }}>
+      <div className="bit" style={{ borderLeft: '3px solid var(--accent)' }}>
         <div className="meta">
           <Link to={`/user/${b.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
             {b.creator_username ?? b.creator.slice(0, 16) + '…'}
@@ -270,7 +265,7 @@ export function BitPage({ tezos, cfg, address, requestWallet }: {
 
       {(data.replies.length > 0 || pendingReplies.length > 0) && (
         <>
-          <h3 style={{ fontSize: 14, color: '#888', marginTop: 24, marginBottom: 8 }}>
+          <h3 style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 24, marginBottom: 8 }}>
             {data.replies.length + pendingReplies.length} repl{(data.replies.length + pendingReplies.length) === 1 ? 'y' : 'ies'}
           </h3>
           {pendingReplies.map(p => (
@@ -298,12 +293,7 @@ export function BitPage({ tezos, cfg, address, requestWallet }: {
                 )}
               </div>
               <div className="footer">
-                <Link
-                  to={`/bit/${r.bid}`}
-                  className="muted"
-                  style={{ fontFamily: 'monospace', textDecoration: 'none', marginLeft: 'auto' }}
-                  title="open bit page"
-                >
+                <Link to={`/bit/${r.bid}`} className="bit-hash" title="open bit page">
                   {r.bid.slice(0, 12)}…
                 </Link>
               </div>
@@ -314,7 +304,7 @@ export function BitPage({ tezos, cfg, address, requestWallet }: {
 
       {data.votes.length > 0 && (
         <>
-          <h3 style={{ fontSize: 14, color: '#888', marginTop: 24, marginBottom: 8 }}>{data.votes.length} vote{data.votes.length === 1 ? '' : 's'}</h3>
+          <h3 style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 24, marginBottom: 8 }}>{data.votes.length} vote{data.votes.length === 1 ? '' : 's'}</h3>
           <div className="bit">
             {data.votes.map(v => (
               <div key={v.voter + v.vote_time} style={{ fontSize: 13, fontFamily: 'monospace', display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>

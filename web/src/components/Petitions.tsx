@@ -254,12 +254,7 @@ function PetitionRow({
           <span className="muted" style={{ fontStyle: 'italic' }}>{activeStatus}</span>
         )}
         {isOpen && !activeStatus && <span className="muted">closes in ~{minsLeft}m</span>}
-        <Link
-          to={`/petition/${p.pid}`}
-          className="muted"
-          style={{ fontFamily: 'monospace', textDecoration: 'none', marginLeft: 'auto' }}
-          title="open petition page"
-        >
+        <Link to={`/petition/${p.pid}`} className="bit-hash" title="open petition page">
           {p.pid.slice(0, 10)}…
         </Link>
       </div>
@@ -336,8 +331,8 @@ function CreatePetition({
 
   const selectStyle = {
     flex: 1,
-    background: '#0f1014',
-    border: '1px solid #2a2a32',
+    background: 'var(--bg)',
+    border: '1px solid var(--border)',
     color: 'inherit' as const,
     padding: 6,
     borderRadius: 4,
@@ -346,7 +341,7 @@ function CreatePetition({
 
   return (
     <div className="compose">
-      <div style={{ fontSize: 13, color: '#aaa', marginBottom: 8 }}>
+      <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>
         Propose a kernel-variable change
       </div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
@@ -367,10 +362,10 @@ function CreatePetition({
           disabled={busy}
         />
       </div>
-      <div style={{ fontSize: 13, color: '#aaa', lineHeight: 1.4, marginBottom: 6 }}>
+      <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: 6 }}>
         {meta.description}
       </div>
-      <div style={{ fontSize: 12, color: '#888', fontFamily: 'monospace', marginBottom: 8 }}>
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'monospace', marginBottom: 8 }}>
         current: {loadingCurrent ? '…' : currentValue !== null ? formatValue(currentValue, meta.unit) : 'unknown'}
       </div>
       <div className="actions">

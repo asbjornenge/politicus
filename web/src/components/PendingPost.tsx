@@ -15,7 +15,7 @@ export function PendingPost({ item, onDismiss }: { item: PendingItem<any>; onDis
       className="bit"
       style={{
         opacity: item.error ? 1 : 0.85,
-        borderLeft: item.error ? '3px solid #ff6b6b' : '3px dashed #5a6fe6',
+        borderLeft: item.error ? '3px solid var(--error)' : '3px dashed var(--accent)',
       }}
     >
       <div className="meta">

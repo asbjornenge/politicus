@@ -45,10 +45,10 @@ export default function App() {
   if (!cfg) return <p className="muted">loading…</p>;
 
   const navLinkStyle = ({ isActive }: { isActive: boolean }): React.CSSProperties => ({
-    color: isActive ? '#e8e4d8' : '#8f8d86',
+    color: isActive ? 'var(--text)' : 'var(--text-muted)',
     padding: '8px 4px',
     marginBottom: -1,
-    borderBottom: isActive ? '2px solid #e8e4d8' : '2px solid transparent',
+    borderBottom: isActive ? '2px solid var(--text)' : '2px solid transparent',
     textDecoration: 'none',
     fontSize: 14,
   });
@@ -77,7 +77,7 @@ export default function App() {
           )}
         </div>
       </header>
-      <nav style={{ display: 'flex', gap: 24, marginBottom: 20, borderBottom: '1px solid #2a2a32' }}>
+      <nav style={{ display: 'flex', gap: 24, marginBottom: 20, borderBottom: '1px solid var(--border)' }}>
         <NavLink to="/" end style={navLinkStyle}>feed</NavLink>
         <NavLink to="/petitions" style={navLinkStyle}>petitions</NavLink>
       </nav>

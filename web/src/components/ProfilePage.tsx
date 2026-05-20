@@ -37,7 +37,7 @@ export function ProfilePage({ tezos, cfg, address }: {
     return (
       <div className="bit">
         <p className="muted">This address has no Politicus profile yet.</p>
-        <div style={{ marginTop: 8, fontFamily: 'monospace', fontSize: 12, color: '#666', wordBreak: 'break-all' }}>
+        <div style={{ marginTop: 8, fontFamily: 'monospace', fontSize: 12, color: 'var(--text-faint)', wordBreak: 'break-all' }}>
           {target}
         </div>
       </div>
@@ -79,7 +79,7 @@ export function ProfilePage({ tezos, cfg, address }: {
         {isOwn && <BackupKey />}
       </div>
 
-      <h3 style={{ fontSize: 14, color: '#888', marginTop: 24, marginBottom: 8 }}>
+      <h3 style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 24, marginBottom: 8 }}>
         {data.bits.length} bit{data.bits.length === 1 ? '' : 's'}
       </h3>
       {data.bits.length === 0 && <p className="muted">no bits yet.</p>}
@@ -136,8 +136,8 @@ function EditProfile({
 
   const fieldStyle: React.CSSProperties = {
     width: '100%',
-    background: '#0f1014',
-    border: '1px solid #2a2a32',
+    background: 'var(--bg)',
+    border: '1px solid var(--border)',
     color: 'inherit',
     padding: 6,
     borderRadius: 4,
@@ -146,7 +146,7 @@ function EditProfile({
   };
 
   return (
-    <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #2a2a32' }}>
+    <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
       <input
         style={fieldStyle}
         placeholder="username"
@@ -185,11 +185,11 @@ function BackupKey() {
   }
 
   return (
-    <details style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid #2a2a32' }}>
-      <summary style={{ cursor: 'pointer', fontSize: 13, color: '#aaa' }}>
+    <details style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+      <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--text-secondary)' }}>
         Backup private key
       </summary>
-      <p style={{ fontSize: 13, color: '#aaa', marginTop: 8 }}>
+      <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 8 }}>
         Anyone with this key controls your account. Save it somewhere safe; don't share it.
       </p>
       <input
@@ -199,8 +199,8 @@ function BackupKey() {
         onFocus={e => revealed && e.target.select()}
         style={{
           width: '100%',
-          background: '#0f1014',
-          border: '1px solid #2a2a32',
+          background: 'var(--bg)',
+          border: '1px solid var(--border)',
           color: 'inherit',
           padding: 6,
           borderRadius: 4,
@@ -247,8 +247,8 @@ function RegisterPrompt({
 
   const fieldStyle: React.CSSProperties = {
     width: '100%',
-    background: '#0f1014',
-    border: '1px solid #2a2a32',
+    background: 'var(--bg)',
+    border: '1px solid var(--border)',
     color: 'inherit',
     padding: 6,
     borderRadius: 4,
@@ -259,7 +259,7 @@ function RegisterPrompt({
   return (
     <div className="bit">
       <h2 style={{ marginTop: 0 }}>Welcome!</h2>
-      <p style={{ color: '#aaa', fontSize: 14, lineHeight: 1.5 }}>
+      <p style={{ color: 'var(--text-secondary)', fontSize: 14, lineHeight: 1.5 }}>
         Your account is created, but you haven't registered with Politicus yet. Set up your profile to start posting.
       </p>
       <div className="muted" style={{ fontFamily: 'monospace', fontSize: 12, marginBottom: 16, wordBreak: 'break-all' }}>

@@ -211,12 +211,7 @@ export function Feed({ tezos, cfg, address, requestWallet }: {
             {activeOp?.bid === b.bid && activeOp.status && (
               <span className="muted" style={{ fontStyle: 'italic' }}>{activeOp.status}</span>
             )}
-            <Link
-              to={`/bit/${b.bid}`}
-              className="muted"
-              style={{ fontFamily: 'monospace', textDecoration: 'none', marginLeft: 'auto' }}
-              title="open bit page"
-            >
+            <Link to={`/bit/${b.bid}`} className="bit-hash" title="open bit page">
               {b.bid.slice(0, 12)}…
             </Link>
           </div>

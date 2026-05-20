@@ -86,12 +86,12 @@ function NewAccount({ onDone, onBack }: { onDone: () => void; onBack: () => void
   return (
     <div className="wallet-gate">
       <h2>Your new account</h2>
-      <p style={{ fontSize: 13, color: '#aaa' }}>
+      <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
         Your address (public — share freely):
       </p>
       <input readOnly value={keypair.address} onFocus={e => e.target.select()} />
 
-      <p style={{ fontSize: 13, color: '#aaa', marginTop: 16 }}>
+      <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 16 }}>
         Your private key — <strong>save this somewhere safe before continuing</strong>.
         Anyone with this key controls your account.
       </p>
@@ -110,9 +110,9 @@ function NewAccount({ onDone, onBack }: { onDone: () => void; onBack: () => void
         </button>
       </div>
 
-      <p style={{ fontSize: 13, color: '#aaa', marginTop: 16 }}>
+      <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 16 }}>
         To post you'll need some test tez. Get some from the{' '}
-        <a href="https://faucet.shadownet.teztnets.com" target="_blank" rel="noopener noreferrer" style={{ color: '#6a8fff' }}>
+        <a href="https://faucet.shadownet.teztnets.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-soft)' }}>
           Shadownet faucet
         </a>{' '}
         (paste your address there).
