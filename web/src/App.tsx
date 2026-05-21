@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { HashRouter, Routes, Route, NavLink } from 'react-router-dom';
+import { User, LogOut } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
 import { Feed } from './components/Feed';
 import { Petitions } from './components/Petitions';
@@ -65,13 +66,17 @@ export default function App() {
             <p className="tagline">Signed, civic, durable.</p>
           </div>
         </NavLink>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="user-actions">
           {address ? (
             <>
-              <NavLink to={`/user/${address}`} className="me" style={{ color: 'inherit', textDecoration: 'none' }}>
-                {address.slice(0, 12)}…
+              <NavLink to={`/user/${address}`} className="me" title={address}>
+                <User size={14} />
+                <span className="hide-mobile">{address.slice(0, 12)}…</span>
               </NavLink>
-              <button className="secondary" onClick={logout}>logout</button>
+              <button className="secondary" onClick={logout} title="logout">
+                <LogOut size={14} />
+                <span className="hide-mobile">logout</span>
+              </button>
             </>
           ) : (
             <button onClick={requestWallet}>Join / Login</button>

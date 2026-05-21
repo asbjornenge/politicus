@@ -40,7 +40,8 @@
 
 * { box-sizing: border-box; }
 
-body { margin: 0; }
+html, body { margin: 0; overflow-x: hidden; }
+body { word-wrap: break-word; overflow-wrap: break-word; }
 
 #root {
   max-width: 720px;
@@ -52,6 +53,8 @@ header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
   margin-bottom: 24px;
 }
 
@@ -98,11 +101,23 @@ header h1 {
   line-height: 1;
 }
 
+.user-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 header .me {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
   color: var(--text-muted);
   font-family: var(--font-mono);
+  text-decoration: none;
 }
+
+header .me:hover { color: var(--text-secondary); }
 
 .compose {
   border: 1px solid var(--border);
@@ -232,8 +247,27 @@ button.secondary:hover { background: rgba(255,255,255,0.04); border-color: var(-
   color: var(--text-faint);
   text-decoration: none;
   margin-left: auto;
+  word-break: break-all;
 }
 .bit-hash:hover { color: var(--text-secondary); }
+
+.markdown { overflow-wrap: break-word; }
+.markdown a { word-break: break-word; }
+.markdown pre { max-width: 100%; }
+.markdown table { display: block; overflow-x: auto; max-width: 100%; }
+
+@media (max-width: 600px) {
+  #root { padding: 16px 12px; }
+  .bit { padding: 12px 14px; }
+  header h1 { font-size: 20px; }
+  .brand-mark { width: 52px; height: 52px; }
+  .tagline { font-size: 13px; }
+  .bit .footer { flex-wrap: wrap; gap: 8px 12px; }
+  .bit-hash { margin-left: 0; flex-basis: 100%; }
+  .hide-mobile { display: none; }
+  header .me { padding: 6px; border: 1px solid var(--border-strong); border-radius: 4px; }
+  .user-actions button { padding: 6px; }
+}
 
 .wallet-gate {
   max-width: 480px;
