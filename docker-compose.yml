@@ -2,14 +2,14 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: politicus
-      POSTGRES_PASSWORD: politicus
-      POSTGRES_DB: politicus
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./db/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U politicus"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -17,19 +17,21 @@ services:
   api:
     build: ./api
     environment:
-      DATABASE_URL: postgres://politicus:politicus@db:5432/politicus
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       PORT: 8080
-      RPC_URL: https://rpc.shadownet.teztnets.com
-      TZKT_API: https://api.shadownet.tzkt.io
-      VARIABLES_ADDRESS: KT1CM56B5QdrVnBPc2RRc5KC9YeUJyxQGeWU
-      TREASURY_ADDRESS: KT1KKH5KPTmYJ5NtLnShMiWHVhU4wik3Pcih
-      IDENTITY_REGISTRY: KT1LBdKpeUNd2hq49q4keziRm431QYytyBfS
-      BIT_REGISTRY: KT193vzUnno9keXoAgpCunscMUYUviREE96d
-      PETITION_REGISTRY: KT1UEUHiDvszkQeRYNEexdTUgGxtfyaJ86xq
-      MODERATION_REGISTRY: KT1PRAZuSK9gGBGukrtyuUwoVojhL9G6XyQU
+      RPC_URL: ${POLITICUS_RPC_URL}
+      TZKT_API: ${TZKT_API}
+      IPFS_UPLOAD_URL: ${IPFS_UPLOAD_URL}
+      IPFS_GATEWAY_URL: ${IPFS_GATEWAY_URL}
+      VARIABLES_ADDRESS: ${VARIABLES_ADDRESS}
+      TREASURY_ADDRESS: ${TREASURY_ADDRESS}
+      IDENTITY_REGISTRY: ${IDENTITY_REGISTRY}
+      BIT_REGISTRY: ${BIT_REGISTRY}
+      PETITION_REGISTRY: ${PETITION_REGISTRY}
+      MODERATION_REGISTRY: ${MODERATION_REGISTRY}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.politicus-api.rule=Host(`politicus.coder.surflabs.no`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.politicus-api.rule=Host(`${POLITICUS_HOST}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.politicus-api.entrypoints=web"
       - "traefik.http.services.politicus-api.loadbalancer.server.port=8080"
     networks:
@@ -42,12 +44,12 @@ services:
   indexer:
     build: ./indexer
     environment:
-      DATABASE_URL: postgres://politicus:politicus@db:5432/politicus
-      TZKT_API: https://api.shadownet.tzkt.io
-      IDENTITY_REGISTRY: KT1LBdKpeUNd2hq49q4keziRm431QYytyBfS
-      BIT_REGISTRY: KT193vzUnno9keXoAgpCunscMUYUviREE96d
-      PETITION_REGISTRY: KT1UEUHiDvszkQeRYNEexdTUgGxtfyaJ86xq
-      MODERATION_REGISTRY: KT1PRAZuSK9gGBGukrtyuUwoVojhL9G6XyQU
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      TZKT_API: ${TZKT_API}
+      IDENTITY_REGISTRY: ${IDENTITY_REGISTRY}
+      BIT_REGISTRY: ${BIT_REGISTRY}
+      PETITION_REGISTRY: ${PETITION_REGISTRY}
+      MODERATION_REGISTRY: ${MODERATION_REGISTRY}
       POLL_INTERVAL_MS: "10000"
     depends_on:
       db:
@@ -60,9 +62,12 @@ services:
     volumes:
       - ./web:/app
       - /app/node_modules
+    environment:
+      VITE_ALLOWED_HOST: ${POLITICUS_HOST}
+      VITE_API_TARGET: http://${POLITICUS_HOST}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.politicus.rule=Host(`politicus.coder.surflabs.no`)"
+      - "traefik.http.routers.politicus.rule=Host(`${POLITICUS_HOST}`)"
       - "traefik.http.routers.politicus.entrypoints=web"
       - "traefik.http.services.politicus.loadbalancer.server.port=5173"
     networks:
