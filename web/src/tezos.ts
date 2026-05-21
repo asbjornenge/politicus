@@ -43,6 +43,15 @@ export async function registerUser(
   return op.hash;
 }
 
+// IPFS CIDs are base58/base32 strings, but Tezos `bytes` parameters require
+// a hex string. We pack the CID as UTF-8 bytes and hex-encode that. Indexers
+// reverse the process when reading from a bigmap.
+export function cidToHexBytes(cid: string): string {
+  return Array.from(new TextEncoder().encode(cid))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 export async function placeholderBrightIdHash(address: string): Promise<string> {
   const data = new TextEncoder().encode(`politicus-placeholder-${address}`);
   const buffer = await crypto.subtle.digest('SHA-256', data);
@@ -103,7 +112,7 @@ export async function sendCreateBit(
   if (cost == null) throw new Error('BitCost not set');
   const c = await tezos.contract.at(cfg.contracts.BitRegistry);
   return await c.methodsObject
-    .create_bit({ 0: contentHash, 1: parent, 2: syndicate })
+    .create_bit({ 0: cidToHexBytes(contentHash), 1: parent, 2: syndicate })
     .send({ amount: Number(cost), mutez: true });
 }
 
@@ -146,7 +155,7 @@ export async function sendCreateModContentAddPetition(
   if (cost == null) throw new Error('PetitionContentModerationAddCost not set');
   const c = await tezos.contract.at(cfg.contracts.PetitionRegistry);
   return await c.methodsObject
-    .create_petition({ mod_content_add: contentHash })
+    .create_petition({ mod_content_add: cidToHexBytes(contentHash) })
     .send({ amount: Number(cost), mutez: true });
 }
 

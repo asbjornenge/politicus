@@ -20,6 +20,7 @@ services:
       DATABASE_URL: postgres://politicus:politicus@db:5432/politicus
       PORT: 8080
       RPC_URL: https://rpc.shadownet.teztnets.com
+      TZKT_API: https://api.shadownet.tzkt.io
       VARIABLES_ADDRESS: KT1CM56B5QdrVnBPc2RRc5KC9YeUJyxQGeWU
       TREASURY_ADDRESS: KT1KKH5KPTmYJ5NtLnShMiWHVhU4wik3Pcih
       IDENTITY_REGISTRY: KT1LBdKpeUNd2hq49q4keziRm431QYytyBfS

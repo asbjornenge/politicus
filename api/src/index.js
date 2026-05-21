@@ -2,12 +2,13 @@ import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { cors } from 'hono/cors';
 import postgres from 'postgres';
-import blake from 'blakejs';
 
 const {
   DATABASE_URL,
   PORT = '8080',
   RPC_URL = 'https://rpc.shadownet.teztnets.com',
+  IPFS_UPLOAD_URL = 'http://internal.asbjornenge.com:5001',
+  IPFS_GATEWAY_URL = 'https://ipfs.asbjornenge.com',
   VARIABLES_ADDRESS,
   TREASURY_ADDRESS,
   IDENTITY_REGISTRY,
@@ -23,7 +24,45 @@ const app = new Hono();
 
 app.use('*', cors());
 
+async function uploadToIpfs(buffer, filename = 'content') {
+  const fd = new FormData();
+  fd.append('file', new Blob([buffer]), filename);
+  const r = await fetch(`${IPFS_UPLOAD_URL}/api/v0/add`, { method: 'POST', body: fd });
+  if (!r.ok) throw new Error(`ipfs add failed: ${r.status} ${await r.text()}`);
+  const text = await r.text();
+  // IPFS returns one NDJSON line per added file; the last line is the wrapped file.
+  const lines = text.trim().split('\n').filter(Boolean);
+  const last = JSON.parse(lines[lines.length - 1]);
+  return last.Hash;
+}
+
+async function fetchFromIpfs(cid) {
+  const r = await fetch(`${IPFS_GATEWAY_URL}/${cid}`);
+  if (!r.ok) throw new Error(`ipfs gateway ${r.status}`);
+  const buffer = Buffer.from(await r.arrayBuffer());
+  const contentType = r.headers.get('content-type') ?? 'application/octet-stream';
+  return { buffer, contentType };
+}
+
 app.get('/health', c => c.json({ ok: true }));
+
+const TZKT_API_URL = process.env.TZKT_API ?? 'https://api.shadownet.tzkt.io';
+
+app.get('/api/kernel-vars', async c => {
+  if (!VARIABLES_ADDRESS) return c.json({ values: {} });
+  try {
+    const r = await fetch(`${TZKT_API_URL}/v1/contracts/${VARIABLES_ADDRESS}/bigmaps/values/keys?active=true&limit=200`);
+    if (!r.ok) return c.json({ error: 'tzkt unavailable' }, 502);
+    const arr = await r.json();
+    const values = {};
+    for (const item of arr) {
+      if (item.key != null && item.value != null) values[String(item.key)] = String(item.value);
+    }
+    return c.json({ values });
+  } catch (e) {
+    return c.json({ error: String(e?.message ?? e) }, 502);
+  }
+});
 
 app.get('/api/config', c => c.json({
   rpcUrl: RPC_URL,
@@ -45,16 +84,37 @@ app.post('/api/content', async c => {
     return c.json({ error: 'expected { body: string, content_type?: string }' }, 400);
   }
   const contentType = typeof body.content_type === 'string' ? body.content_type : 'text/plain';
-  const bytes = new TextEncoder().encode(body.body);
-  const hashBytes = blake.blake2b(bytes, null, 32);
-  const hash = Buffer.from(hashBytes).toString('hex');
+  const bytes = Buffer.from(body.body, 'utf8');
+
+  let hash;
+  try {
+    hash = await uploadToIpfs(bytes, 'content.txt');
+  } catch (e) {
+    return c.json({ error: 'ipfs_unavailable', detail: String(e?.message ?? e) }, 502);
+  }
 
   await sql`
     INSERT INTO content (hash, body, content_type)
-    VALUES (${hash}, ${Buffer.from(bytes)}, ${contentType})
+    VALUES (${hash}, ${bytes}, ${contentType})
     ON CONFLICT (hash) DO NOTHING
   `;
-  return c.json({ hash });
+  return c.json({ hash, url: `${IPFS_GATEWAY_URL}/${hash}` });
+});
+
+app.post('/api/upload', async c => {
+  const form = await c.req.formData().catch(() => null);
+  const file = form?.get('file');
+  if (!file || typeof file === 'string') {
+    return c.json({ error: 'expected multipart field "file"' }, 400);
+  }
+  const buffer = Buffer.from(await file.arrayBuffer());
+  let cid;
+  try {
+    cid = await uploadToIpfs(buffer, file.name || 'upload');
+  } catch (e) {
+    return c.json({ error: 'ipfs_unavailable', detail: String(e?.message ?? e) }, 502);
+  }
+  return c.json({ cid, url: `${IPFS_GATEWAY_URL}/${cid}` });
 });
 
 app.get('/api/content/:hash', async c => {
@@ -64,13 +124,30 @@ app.get('/api/content/:hash', async c => {
     return c.json({ error: 'moderated', hash }, 451);
   }
   const rows = await sql`SELECT body, content_type FROM content WHERE hash = ${hash}`;
-  if (rows.length === 0) return c.json({ error: 'not_found' }, 404);
-  const row = rows[0];
-  return c.json({
-    hash,
-    body: row.body.toString('utf8'),
-    content_type: row.content_type,
-  });
+  if (rows.length > 0) {
+    const row = rows[0];
+    return c.json({
+      hash,
+      body: row.body.toString('utf8'),
+      content_type: row.content_type,
+    });
+  }
+  // Cache miss — try fetching from IPFS gateway and cache for next time.
+  try {
+    const { buffer, contentType } = await fetchFromIpfs(hash);
+    await sql`
+      INSERT INTO content (hash, body, content_type)
+      VALUES (${hash}, ${buffer}, ${contentType})
+      ON CONFLICT (hash) DO NOTHING
+    `;
+    return c.json({
+      hash,
+      body: buffer.toString('utf8'),
+      content_type: contentType,
+    });
+  } catch {
+    return c.json({ error: 'not_found' }, 404);
+  }
 });
 
 // --- Bits ---

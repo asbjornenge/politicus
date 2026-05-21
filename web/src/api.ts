@@ -108,3 +108,10 @@ export async function getUser(address: string): Promise<{ user: User; bits: Bit[
   if (!r.ok) return null;
   return r.json();
 }
+
+export async function getKernelVars(): Promise<Record<string, string>> {
+  const r = await fetch('/api/kernel-vars');
+  if (!r.ok) return {};
+  const { values } = await r.json();
+  return values ?? {};
+}

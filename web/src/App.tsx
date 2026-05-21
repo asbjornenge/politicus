@@ -6,6 +6,7 @@ import { Petitions } from './components/Petitions';
 import { BitPage } from './components/BitPage';
 import { PetitionPage } from './components/PetitionPage';
 import { ProfilePage } from './components/ProfilePage';
+import { AboutPage } from './components/AboutPage';
 import { WalletGate } from './components/WalletGate';
 import { getConfig } from './api';
 import type { Config } from './api';
@@ -80,6 +81,7 @@ export default function App() {
       <nav style={{ display: 'flex', gap: 24, marginBottom: 20, borderBottom: '1px solid var(--border)' }}>
         <NavLink to="/" end style={navLinkStyle}>feed</NavLink>
         <NavLink to="/petitions" style={navLinkStyle}>petitions</NavLink>
+        <NavLink to="/about" style={navLinkStyle}>about</NavLink>
       </nav>
       <Routes>
         <Route path="/" element={<Feed tezos={tezos} cfg={cfg} address={address} requestWallet={requestWallet} />} />
@@ -87,6 +89,7 @@ export default function App() {
         <Route path="/bit/:bid" element={<BitPage tezos={tezos} cfg={cfg} address={address} requestWallet={requestWallet} />} />
         <Route path="/petition/:pid" element={<PetitionPage tezos={tezos} cfg={cfg} address={address} requestWallet={requestWallet} />} />
         <Route path="/user/:address" element={<ProfilePage tezos={tezos} cfg={cfg} address={address} />} />
+        <Route path="/about" element={<AboutPage />} />
       </Routes>
       {walletPromptOpen && (
         <div style={{

@@ -43,6 +43,19 @@ async function setCursor(source, lastId) {
   await sql`UPDATE indexer_state SET last_id = ${lastId}, updated_at = now() WHERE source = ${source}`;
 }
 
+// IPFS CIDs are stored on-chain as UTF-8 bytes (hex-encoded by Tezos). When
+// the bytes decode cleanly to an alphanumeric string of CID length, treat
+// them as a CID; otherwise keep the raw hex (covers legacy Blake2b-style
+// hashes from pre-IPFS bits).
+function decodeContentHash(hex) {
+  if (!hex || typeof hex !== 'string') return hex;
+  try {
+    const utf8 = Buffer.from(hex, 'hex').toString('utf8');
+    if (/^[A-Za-z0-9]{30,80}$/.test(utf8)) return utf8;
+  } catch {}
+  return hex;
+}
+
 async function applyBigmapUpdate(u, ptrs) {
   const { bigmap, action, content } = u;
   if (action === 'allocate' || action === 'remove') return;
@@ -57,10 +70,11 @@ async function applyBigmapUpdate(u, ptrs) {
       return;
     }
     if (!value) return;
+    const contentHash = decodeContentHash(value.content_hash);
     await sql`
       INSERT INTO bits (bid, creator, content_hash, parent, syndicate, creation_time, yay, nay)
       VALUES (
-        ${key}, ${value.creator}, ${value.content_hash},
+        ${key}, ${value.creator}, ${contentHash},
         ${value.parent ?? null}, ${value.syndicate ?? null},
         ${value.creation_time}, ${value.yay}, ${value.nay}
       )
@@ -114,7 +128,11 @@ async function applyBigmapUpdate(u, ptrs) {
     if (!value) return;
     const a = value.action ?? {};
     const actionType = Object.keys(a)[0] ?? 'unknown';
-    const actionPayload = a[actionType] ?? null;
+    let actionPayload = a[actionType] ?? null;
+    if ((actionType === 'mod_content_add' || actionType === 'mod_content_del')
+        && typeof actionPayload === 'string') {
+      actionPayload = decodeContentHash(actionPayload);
+    }
     await sql`
       INSERT INTO petitions (pid, creator, action_type, action_payload, creation_time, closes_at, yay, nay, unique_voters, resolved, passed)
       VALUES (
