@@ -477,6 +477,7 @@ button.icon-only {
 .success { color: var(--success); font-size: 13px; margin-top: 8px; }
 .muted { color: var(--text-muted); font-size: 13px; }
 
+.markdown { white-space: normal; }
 .markdown > *:first-child { margin-top: 0; }
 .markdown > *:last-child { margin-bottom: 0; }
 .markdown h1, .markdown h2, .markdown h3, .markdown h4 {
@@ -516,6 +517,8 @@ button.icon-only {
   color: var(--text-secondary);
   font-style: italic;
 }
+.markdown blockquote > *:first-child { margin-top: 0; }
+.markdown blockquote > *:last-child { margin-bottom: 0; }
 .markdown ul, .markdown ol {
   padding-left: 1.5em;
   margin: 0.5em 0;
