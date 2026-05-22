@@ -4,6 +4,7 @@ import {
   Image as ImageIcon, Eye, Edit3, FilePlus, FileText, ChevronDown,
 } from 'lucide-react';
 import { Markdown } from './Markdown';
+import { formatTez } from '../utils';
 
 type Draft = { id: string; text: string; updated_at: number };
 
@@ -70,13 +71,22 @@ export function Compose({
   onCancel,
   placeholder,
   address,
+  costMutez,
+  balance,
 }: {
   onSubmit: (text: string) => void | Promise<void>;
   parent?: string;
   onCancel?: () => void;
   placeholder?: string;
   address?: string | null;
+  costMutez?: string | null;
+  balance?: number | null;
 }) {
+  const costTez = costMutez ? Number(costMutez) / 1_000_000 : null;
+  const insufficient = costTez !== null && balance !== null && balance !== undefined && balance < costTez;
+  const submitLabel = parent ? 'reply' : 'post';
+  const submitText = costTez !== null ? `${submitLabel} · ${formatTez(costTez)} ꜩ` : submitLabel;
+  const submitTitle = insufficient ? `insufficient balance — need ${formatTez(costTez!)} ꜩ` : undefined;
   const scope = parent ?? 'feed';
   const addr = address ?? null;
 
@@ -320,8 +330,8 @@ export function Compose({
             {onCancel && (
               <button onClick={onCancel} disabled={submitting} className="secondary">cancel</button>
             )}
-            <button onClick={submit} disabled={submitting || text.trim().length === 0}>
-              {parent ? 'reply' : 'post'}
+            <button onClick={submit} disabled={submitting || text.trim().length === 0 || insufficient} title={submitTitle}>
+              {submitText}
             </button>
           </div>
         </div>
@@ -403,8 +413,8 @@ export function Compose({
             >
               <X size={14} /> discard
             </button>
-            <button onClick={submit} disabled={submitting || text.trim().length === 0}>
-              {parent ? 'reply' : 'post'}
+            <button onClick={submit} disabled={submitting || text.trim().length === 0 || insufficient} title={submitTitle}>
+              {submitText}
             </button>
           </div>
         </div>

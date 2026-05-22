@@ -14,10 +14,12 @@ import { Markdown } from './Markdown';
 import { formatBitDate } from '../utils';
 
 
-export function BitPage({ tezos, cfg, address, requestWallet }: {
+export function BitPage({ tezos, cfg, address, balance, kernelVars, requestWallet }: {
   tezos: TezosToolkit | null;
   cfg: Config;
   address: string | null;
+  balance: number | null;
+  kernelVars: Record<string, string>;
   requestWallet: () => void;
 }) {
   const { bid } = useParams<{ bid: string }>();
@@ -260,6 +262,8 @@ export function BitPage({ tezos, cfg, address, requestWallet }: {
             onSubmit={handleReply}
             onCancel={() => setReplying(false)}
             address={address}
+            costMutez={kernelVars.BitCost ?? null}
+            balance={balance}
           />
         </div>
       )}

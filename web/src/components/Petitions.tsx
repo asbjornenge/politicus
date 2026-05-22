@@ -9,6 +9,7 @@ import {
   ensureRegistered, readVariable,
 } from '../tezos';
 import { KERNEL_VARS, groupedKernelVars, formatValue } from '../kernelVars';
+import { formatTez } from '../utils';
 import { PendingPost, type PendingItem } from './PendingPost';
 
 
@@ -16,11 +17,15 @@ export function Petitions({
   tezos,
   cfg,
   address,
+  balance,
+  kernelVars,
   requestWallet,
 }: {
   tezos: TezosToolkit | null;
   cfg: Config;
   address: string | null;
+  balance: number | null;
+  kernelVars: Record<string, string>;
   requestWallet: () => void;
 }) {
   const [petitions, setPetitions] = useState<Petition[]>([]);
@@ -154,7 +159,13 @@ export function Petitions({
   return (
     <div>
       {tezos && address ? (
-        <CreatePetition tezos={tezos} cfg={cfg} onCreate={handleCreate} />
+        <CreatePetition
+          tezos={tezos}
+          cfg={cfg}
+          onCreate={handleCreate}
+          costMutez={kernelVars.PetitionUpdateVariableCost ?? null}
+          balance={balance}
+        />
       ) : (
         <div className="compose" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span className="muted">Sign in to propose a kernel change</span>
@@ -292,10 +303,16 @@ function renderPayload(t: string, payload: any) {
 }
 
 function CreatePetition({
-  tezos, cfg, onCreate,
+  tezos, cfg, onCreate, costMutez, balance,
 }: {
-  tezos: TezosToolkit; cfg: Config; onCreate: (key: string, value: number) => void | Promise<void>;
+  tezos: TezosToolkit;
+  cfg: Config;
+  onCreate: (key: string, value: number) => void | Promise<void>;
+  costMutez: string | null;
+  balance: number | null;
 }) {
+  const costTez = costMutez ? Number(costMutez) / 1_000_000 : null;
+  const insufficient = costTez !== null && balance !== null && balance < costTez;
   const [key, setKey] = useState('BitCost');
   const [value, setValue] = useState('');
   const [currentValue, setCurrentValue] = useState<bigint | null>(null);
@@ -369,9 +386,13 @@ function CreatePetition({
         current: {loadingCurrent ? '…' : currentValue !== null ? formatValue(currentValue, meta.unit) : 'unknown'}
       </div>
       <div className="actions">
-        <span className="muted">costs PetitionUpdateVariableCost</span>
-        <button onClick={submit} disabled={busy || !value}>
-          {busy ? 'submitting…' : 'propose'}
+        <span className="muted">PetitionUpdateVariableCost</span>
+        <button
+          onClick={submit}
+          disabled={busy || !value || insufficient}
+          title={insufficient ? `insufficient balance — need ${formatTez(costTez!)} ꜩ` : undefined}
+        >
+          {busy ? 'submitting…' : costTez !== null ? `propose · ${formatTez(costTez)} ꜩ` : 'propose'}
         </button>
       </div>
       {err && <div className="error">{err}</div>}

@@ -13,10 +13,12 @@ import { PendingPost, type PendingItem } from './PendingPost';
 import { Markdown } from './Markdown';
 import { formatBitDate } from '../utils';
 
-export function Feed({ tezos, cfg, address, requestWallet }: {
+export function Feed({ tezos, cfg, address, balance, kernelVars, requestWallet }: {
   tezos: TezosToolkit | null;
   cfg: Config;
   address: string | null;
+  balance: number | null;
+  kernelVars: Record<string, string>;
   requestWallet: () => void;
 }) {
   const [bits, setBits] = useState<Bit[]>([]);
@@ -150,7 +152,12 @@ export function Feed({ tezos, cfg, address, requestWallet }: {
   return (
     <div>
       {tezos && address ? (
-        <Compose onSubmit={handleSubmit} address={address} />
+        <Compose
+          onSubmit={handleSubmit}
+          address={address}
+          costMutez={kernelVars.BitCost ?? null}
+          balance={balance}
+        />
       ) : (
         <div className="compose" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span className="muted">Sign in to post a bit</span>

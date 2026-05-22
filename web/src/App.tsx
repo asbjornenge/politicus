@@ -10,7 +10,7 @@ import { PetitionPage } from './components/PetitionPage';
 import { ProfilePage } from './components/ProfilePage';
 import { AboutPage } from './components/AboutPage';
 import { WalletGate } from './components/WalletGate';
-import { getConfig } from './api';
+import { getConfig, getKernelVars } from './api';
 import type { Config } from './api';
 import { loadSecretKey, buildToolkit, clearSecretKey } from './tezos';
 
@@ -20,6 +20,7 @@ export default function App() {
   const [address, setAddress] = useState<string | null>(null);
   const [walletPromptOpen, setWalletPromptOpen] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
+  const [kernelVars, setKernelVars] = useState<Record<string, string>>({});
   const [err, setErr] = useState('');
 
   useEffect(() => {
@@ -27,6 +28,7 @@ export default function App() {
       try {
         const c = await getConfig();
         setCfg(c);
+        getKernelVars().then(setKernelVars).catch(() => {});
         const sk = loadSecretKey();
         if (sk) {
           const { tezos, address } = await buildToolkit(c, sk);
@@ -119,9 +121,9 @@ export default function App() {
         <NavLink to="/about" style={navLinkStyle}>about</NavLink>
       </nav>
       <Routes>
-        <Route path="/" element={<Feed tezos={tezos} cfg={cfg} address={address} requestWallet={requestWallet} />} />
-        <Route path="/petitions" element={<Petitions tezos={tezos} cfg={cfg} address={address} requestWallet={requestWallet} />} />
-        <Route path="/bit/:bid" element={<BitPage tezos={tezos} cfg={cfg} address={address} requestWallet={requestWallet} />} />
+        <Route path="/" element={<Feed tezos={tezos} cfg={cfg} address={address} balance={balance} kernelVars={kernelVars} requestWallet={requestWallet} />} />
+        <Route path="/petitions" element={<Petitions tezos={tezos} cfg={cfg} address={address} balance={balance} kernelVars={kernelVars} requestWallet={requestWallet} />} />
+        <Route path="/bit/:bid" element={<BitPage tezos={tezos} cfg={cfg} address={address} balance={balance} kernelVars={kernelVars} requestWallet={requestWallet} />} />
         <Route path="/petition/:pid" element={<PetitionPage tezos={tezos} cfg={cfg} address={address} requestWallet={requestWallet} />} />
         <Route path="/user/:address" element={<ProfilePage tezos={tezos} cfg={cfg} address={address} balance={balance} />} />
         <Route path="/about" element={<AboutPage />} />
