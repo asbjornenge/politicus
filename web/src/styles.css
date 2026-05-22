@@ -424,6 +424,21 @@ button.icon-only {
   color: var(--text);
 }
 
+.bit .footer button .vote-pending {
+  font-size: 11px;
+  color: var(--accent-soft);
+  margin-left: 4px;
+  font-family: var(--font-mono);
+}
+
+.bit .footer button.pending {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.bit .footer button.pending:hover {
+  border-color: var(--accent-soft);
+}
+
 .bit-hash {
   font-family: var(--font-mono);
   font-size: 11px;

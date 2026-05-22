@@ -161,7 +161,7 @@ app.get('/api/bits', async c => {
   const rows = before
     ? await sql`
         SELECT b.*, c.body, c.content_type, u.username, u.bio,
-          v.direction AS my_vote,
+          v.direction AS my_vote, v.votes AS my_votes,
           false AS content_moderated, false AS creator_moderated
         FROM bits b
         LEFT JOIN content c ON c.hash = b.content_hash
@@ -175,7 +175,7 @@ app.get('/api/bits', async c => {
       `
     : await sql`
         SELECT b.*, c.body, c.content_type, u.username, u.bio,
-          v.direction AS my_vote,
+          v.direction AS my_vote, v.votes AS my_votes,
           false AS content_moderated, false AS creator_moderated
         FROM bits b
         LEFT JOIN content c ON c.hash = b.content_hash
@@ -194,7 +194,7 @@ app.get('/api/bits/:bid', async c => {
   const viewer = c.req.query('viewer') ?? '';
   const rows = await sql`
     SELECT b.*, c.body, c.content_type, u.username, u.bio,
-      v.direction AS my_vote,
+      v.direction AS my_vote, v.votes AS my_votes,
       EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash) AS content_moderated,
       EXISTS (SELECT 1 FROM moderated_users mu WHERE mu.address = b.creator) AS creator_moderated
     FROM bits b
@@ -212,7 +212,7 @@ app.get('/api/bits/:bid', async c => {
       SELECT b.bid, b.parent, t.depth + 1 FROM bits b JOIN thread t ON b.bid = t.parent WHERE t.depth < 50
     )
     SELECT b.*, c.body, c.content_type, u.username, u.bio,
-      v.direction AS my_vote,
+      v.direction AS my_vote, v.votes AS my_votes,
       EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash) AS content_moderated,
       EXISTS (SELECT 1 FROM moderated_users mu WHERE mu.address = b.creator) AS creator_moderated
     FROM thread t
@@ -226,7 +226,7 @@ app.get('/api/bits/:bid', async c => {
 
   const replies = await sql`
     SELECT b.*, c.body, c.content_type, u.username, u.bio,
-      v.direction AS my_vote,
+      v.direction AS my_vote, v.votes AS my_votes,
       EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash) AS content_moderated,
       EXISTS (SELECT 1 FROM moderated_users mu WHERE mu.address = b.creator) AS creator_moderated
     FROM bits b
@@ -279,7 +279,7 @@ app.get('/api/petitions', async c => {
   const viewer = c.req.query('viewer') ?? '';
   const rows = await sql`
     SELECT p.*, u.username AS creator_username,
-      pv.direction AS my_vote
+      pv.direction AS my_vote, pv.votes AS my_votes
     FROM petitions p
     LEFT JOIN users u ON u.address = p.creator
     LEFT JOIN petition_votes pv ON pv.pid = p.pid AND pv.voter = ${viewer}
@@ -294,7 +294,7 @@ app.get('/api/petitions/:pid', async c => {
   const viewer = c.req.query('viewer') ?? '';
   const rows = await sql`
     SELECT p.*, u.username AS creator_username,
-      pv.direction AS my_vote
+      pv.direction AS my_vote, pv.votes AS my_votes
     FROM petitions p
     LEFT JOIN users u ON u.address = p.creator
     LEFT JOIN petition_votes pv ON pv.pid = p.pid AND pv.voter = ${viewer}
@@ -326,6 +326,7 @@ function formatPetition(row) {
     resolved: row.resolved,
     passed: row.passed,
     my_vote: myVote,
+    my_votes: row.my_votes !== null && row.my_votes !== undefined ? Number(row.my_votes) : null,
   };
 }
 
@@ -351,6 +352,7 @@ function formatBit(row) {
     content_moderated: contentModerated,
     creator_moderated: creatorModerated,
     my_vote: myVote,
+    my_votes: row.my_votes !== null && row.my_votes !== undefined ? Number(row.my_votes) : null,
   };
 }
 

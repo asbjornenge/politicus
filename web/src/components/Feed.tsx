@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronUp, ChevronDown, Flag, Loader2 } from 'lucide-react';
+import { ChevronUp, ChevronDown, Flag, Loader2, X as XIcon } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
 import { listBits, postContent } from '../api';
 import type { Bit, Config } from '../api';
@@ -11,7 +11,9 @@ import {
 import { Compose } from './Compose';
 import { PendingPost, type PendingItem } from './PendingPost';
 import { Markdown } from './Markdown';
-import { formatBitDate } from '../utils';
+import { formatBitDate, formatTez, pendingVoteTotal, quadraticCostTez } from '../utils';
+
+type PendingVote = { direction: 'up' | 'down'; count: number };
 
 export function Feed({ tezos, cfg, address, balance, kernelVars, requestWallet }: {
   tezos: TezosToolkit | null;
@@ -36,6 +38,22 @@ export function Feed({ tezos, cfg, address, balance, kernelVars, requestWallet }
   }
   const [notice, setNotice] = useState('');
   const [pending, setPending] = useState<PendingItem<Bit>[]>([]);
+  const [pendingVotes, setPendingVotes] = useState<Record<string, PendingVote>>({});
+
+  function bumpPendingVote(bid: string, dir: 'up' | 'down') {
+    setPendingVotes(prev => {
+      const cur = prev[bid];
+      if (!cur || cur.direction !== dir) return { ...prev, [bid]: { direction: dir, count: 1 } };
+      return { ...prev, [bid]: { direction: dir, count: cur.count + 1 } };
+    });
+  }
+  function clearPendingVote(bid: string) {
+    setPendingVotes(prev => {
+      const next = { ...prev };
+      delete next[bid];
+      return next;
+    });
+  }
 
   function updatePending(id: string, patch: Partial<PendingItem<Bit>>) {
     setPending(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
@@ -106,18 +124,23 @@ export function Feed({ tezos, cfg, address, balance, kernelVars, requestWallet }
     }
   }
 
-  async function vote(bid: string, dir: boolean) {
+  async function submitPendingVote(bid: string) {
     if (!tezos || !address) { requestWallet(); return; }
+    const p = pendingVotes[bid];
+    if (!p) return;
     const before = bits.find(b => b.bid === bid);
     const beforeYay = before?.yay ?? 0;
     const beforeNay = before?.nay ?? 0;
+    const total = pendingVoteTotal(before?.my_vote ?? null, before?.my_votes ?? null, p.direction, p.count);
+    const dir = p.direction === 'up';
     setActiveOp({ bid, kind: dir ? 'up' : 'down', status: 'preparing…' });
     try {
       await ensureRegistered(tezos, cfg, address, s => patchActiveOp({ status: s }));
       patchActiveOp({ status: 'signing transaction…' });
-      const op = await sendVoteBit(tezos, cfg, bid, dir, 1);
+      const op = await sendVoteBit(tezos, cfg, bid, dir, total);
       patchActiveOp({ status: `in mempool (${op.hash.slice(0, 10)}…)` });
       await op.confirmation();
+      clearPendingVote(bid);
       setActiveOp({
         bid,
         kind: dir ? 'up' : 'down',
@@ -194,24 +217,56 @@ export function Feed({ tezos, cfg, address, balance, kernelVars, requestWallet }
             )}
           </div>
           <div className="footer">
-            <button
-              onClick={() => vote(b.bid, true)}
-              disabled={activeOp?.bid === b.bid || b.my_vote === 'up'}
-              className={b.my_vote === 'up' ? 'voted' : ''}
-              title={b.my_vote === 'up' ? 'you already voted up' : undefined}
-            >
-              {activeOp?.bid === b.bid && activeOp.kind === 'up' ? <Loader2 size={14} className="spinner" /> : <ChevronUp size={14} />}
-              {b.yay}
-            </button>
-            <button
-              onClick={() => vote(b.bid, false)}
-              disabled={activeOp?.bid === b.bid || b.my_vote === 'down'}
-              className={b.my_vote === 'down' ? 'voted' : ''}
-              title={b.my_vote === 'down' ? 'you already voted down' : undefined}
-            >
-              {activeOp?.bid === b.bid && activeOp.kind === 'down' ? <Loader2 size={14} className="spinner" /> : <ChevronDown size={14} />}
-              {b.nay}
-            </button>
+            {(() => {
+              const pv = pendingVotes[b.bid];
+              const total = pv ? pendingVoteTotal(b.my_vote, b.my_votes, pv.direction, pv.count) : 0;
+              const cost = pv ? quadraticCostTez(kernelVars.BitVoteCost, total) : null;
+              const insufficient = cost !== null && balance !== null && balance < cost;
+              const busy = activeOp?.bid === b.bid;
+              return (
+                <>
+                  <button
+                    onClick={() => bumpPendingVote(b.bid, 'up')}
+                    disabled={busy}
+                    className={(b.my_vote === 'up' ? 'voted' : '') + (pv?.direction === 'up' ? ' pending' : '')}
+                    title={b.my_vote === 'up' && b.my_votes ? `you voted up with ${b.my_votes}` : 'upvote'}
+                  >
+                    {busy && activeOp?.kind === 'up' ? <Loader2 size={14} className="spinner" /> : <ChevronUp size={14} />}
+                    {b.yay}
+                    {pv?.direction === 'up' && <span className="vote-pending">+{pv.count}</span>}
+                  </button>
+                  <button
+                    onClick={() => bumpPendingVote(b.bid, 'down')}
+                    disabled={busy}
+                    className={(b.my_vote === 'down' ? 'voted' : '') + (pv?.direction === 'down' ? ' pending' : '')}
+                    title={b.my_vote === 'down' && b.my_votes ? `you voted down with ${b.my_votes}` : 'downvote'}
+                  >
+                    {busy && activeOp?.kind === 'down' ? <Loader2 size={14} className="spinner" /> : <ChevronDown size={14} />}
+                    {b.nay}
+                    {pv?.direction === 'down' && <span className="vote-pending">+{pv.count}</span>}
+                  </button>
+                  {pv && cost !== null && (
+                    <>
+                      <button
+                        onClick={() => submitPendingVote(b.bid)}
+                        disabled={busy || insufficient}
+                        title={insufficient ? `need ${formatTez(cost)} ꜩ` : `submit ${pv.direction} vote (total ${total})`}
+                      >
+                        vote · {formatTez(cost)} ꜩ
+                      </button>
+                      <button
+                        onClick={() => clearPendingVote(b.bid)}
+                        disabled={busy}
+                        className="icon-only"
+                        title="clear pending vote"
+                      >
+                        <XIcon size={12} />
+                      </button>
+                    </>
+                  )}
+                </>
+              );
+            })()}
             <button onClick={() => moderate(b)} disabled={activeOp?.bid === b.bid} title="propose to moderate this bit">
               {activeOp?.bid === b.bid && activeOp.kind === 'mod' ? <Loader2 size={14} className="spinner" /> : <Flag size={14} />}
             </button>

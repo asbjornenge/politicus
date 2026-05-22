@@ -13,3 +13,21 @@ export function formatTez(tez: number): string {
   if (tez >= 1) return tez.toFixed(2);
   return tez.toFixed(3);
 }
+
+export function pendingVoteTotal(
+  myDirection: 'up' | 'down' | null,
+  myVotes: number | null,
+  pendingDirection: 'up' | 'down',
+  pendingCount: number,
+): number {
+  const base = myDirection === pendingDirection ? (myVotes ?? 0) : 0;
+  return base + pendingCount;
+}
+
+export function quadraticCostTez(
+  unitCostMutez: string | null | undefined,
+  votes: number,
+): number | null {
+  if (!unitCostMutez || votes < 1) return null;
+  return (Number(unitCostMutez) * votes * votes) / 1_000_000;
+}

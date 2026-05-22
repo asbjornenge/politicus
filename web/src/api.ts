@@ -13,6 +13,7 @@ export type Bit = {
   content_moderated: boolean;
   creator_moderated: boolean;
   my_vote: 'up' | 'down' | null;
+  my_votes: number | null;
 };
 
 export type Config = {
@@ -42,6 +43,7 @@ export type Petition = {
   resolved: boolean;
   passed: boolean;
   my_vote: 'up' | 'down' | null;
+  my_votes: number | null;
 };
 
 export async function getConfig(): Promise<Config> {

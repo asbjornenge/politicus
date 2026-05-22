@@ -9,7 +9,9 @@ import {
   ensureRegistered, readVariable,
 } from '../tezos';
 import { KERNEL_VARS, groupedKernelVars, formatValue } from '../kernelVars';
-import { formatTez } from '../utils';
+import { formatTez, pendingVoteTotal, quadraticCostTez } from '../utils';
+
+type PendingPetitionVote = { direction: 'up' | 'down'; count: number };
 import { PendingPost, type PendingItem } from './PendingPost';
 
 
@@ -43,6 +45,22 @@ export function Petitions({
   }
   const [err, setErr] = useState('');
   const [pending, setPending] = useState<PendingItem<Petition>[]>([]);
+  const [pendingVotes, setPendingVotes] = useState<Record<string, PendingPetitionVote>>({});
+
+  function bumpPendingVote(pid: string, dir: 'up' | 'down') {
+    setPendingVotes(prev => {
+      const cur = prev[pid];
+      if (!cur || cur.direction !== dir) return { ...prev, [pid]: { direction: dir, count: 1 } };
+      return { ...prev, [pid]: { direction: dir, count: cur.count + 1 } };
+    });
+  }
+  function clearPendingVote(pid: string) {
+    setPendingVotes(prev => {
+      const next = { ...prev };
+      delete next[pid];
+      return next;
+    });
+  }
 
   function updatePending(id: string, patch: Partial<PendingItem<Petition>>) {
     setPending(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
@@ -88,18 +106,23 @@ export function Petitions({
     return () => { cancelled = true; clearInterval(handle); };
   }, [isWatching]);
 
-  async function vote(pid: string, dir: boolean) {
+  async function submitPendingVote(pid: string) {
     if (!tezos || !address) { requestWallet(); return; }
+    const pv = pendingVotes[pid];
+    if (!pv) return;
     const before = petitions.find(p => p.pid === pid);
     const beforeYay = before?.yay ?? 0;
     const beforeNay = before?.nay ?? 0;
+    const total = pendingVoteTotal(before?.my_vote ?? null, before?.my_votes ?? null, pv.direction, pv.count);
+    const dir = pv.direction === 'up';
     setActiveOp({ pid, kind: dir ? 'up' : 'down', status: 'preparing…' }); setErr('');
     try {
       await ensureRegistered(tezos, cfg, address, s => patchActiveOp({ status: s }));
       patchActiveOp({ status: 'signing transaction…' });
-      const op = await sendVotePetition(tezos, cfg, pid, dir, 1);
+      const op = await sendVotePetition(tezos, cfg, pid, dir, total);
       patchActiveOp({ status: `in mempool (${op.hash.slice(0, 10)}…)` });
       await op.confirmation();
+      clearPendingVote(pid);
       setActiveOp({
         pid, kind: dir ? 'up' : 'down',
         status: 'waiting for indexer…',
@@ -184,9 +207,14 @@ export function Petitions({
           p={p}
           activeOp={activeOp?.pid === p.pid ? activeOp.kind : null}
           activeStatus={activeOp?.pid === p.pid ? activeOp.status : undefined}
-          onYay={() => vote(p.pid, true)}
-          onNay={() => vote(p.pid, false)}
+          pendingVote={pendingVotes[p.pid] ?? null}
+          onYay={() => bumpPendingVote(p.pid, 'up')}
+          onNay={() => bumpPendingVote(p.pid, 'down')}
+          onSubmit={() => submitPendingVote(p.pid)}
+          onClearPending={() => clearPendingVote(p.pid)}
           onResolve={() => resolve(p.pid)}
+          unitVoteCostMutez={kernelVars.PetitionVoteCost ?? null}
+          balance={balance}
         />
       ))}
     </div>
@@ -194,14 +222,19 @@ export function Petitions({
 }
 
 function PetitionRow({
-  p, activeOp, activeStatus, onYay, onNay, onResolve,
+  p, activeOp, activeStatus, pendingVote, onYay, onNay, onSubmit, onClearPending, onResolve, unitVoteCostMutez, balance,
 }: {
   p: Petition;
   activeOp: 'up' | 'down' | 'resolve' | null;
   activeStatus?: string;
+  pendingVote: PendingPetitionVote | null;
   onYay: () => void;
   onNay: () => void;
+  onSubmit: () => void;
+  onClearPending: () => void;
   onResolve: () => void;
+  unitVoteCostMutez: string | null;
+  balance: number | null;
 }) {
   const busy = activeOp !== null;
   const now = Date.now();
@@ -230,28 +263,55 @@ function PetitionRow({
         {renderPayload(p.action_type, p.action_payload)}
       </div>
       <div className="footer">
-        {isOpen && (
-          <>
-            <button
-              onClick={onYay}
-              disabled={busy || p.my_vote === 'up'}
-              className={p.my_vote === 'up' ? 'voted' : ''}
-              title={p.my_vote === 'up' ? 'you already voted up' : undefined}
-            >
-              {activeOp === 'up' ? <Loader2 size={14} className="spinner" /> : <ChevronUp size={14} />}
-              {p.yay}
-            </button>
-            <button
-              onClick={onNay}
-              disabled={busy || p.my_vote === 'down'}
-              className={p.my_vote === 'down' ? 'voted' : ''}
-              title={p.my_vote === 'down' ? 'you already voted down' : undefined}
-            >
-              {activeOp === 'down' ? <Loader2 size={14} className="spinner" /> : <ChevronDown size={14} />}
-              {p.nay}
-            </button>
-          </>
-        )}
+        {isOpen && (() => {
+          const pv = pendingVote;
+          const total = pv ? pendingVoteTotal(p.my_vote, p.my_votes, pv.direction, pv.count) : 0;
+          const cost = pv ? quadraticCostTez(unitVoteCostMutez, total) : null;
+          const insufficient = cost !== null && balance !== null && balance < cost;
+          return (
+            <>
+              <button
+                onClick={onYay}
+                disabled={busy}
+                className={(p.my_vote === 'up' ? 'voted' : '') + (pv?.direction === 'up' ? ' pending' : '')}
+                title={p.my_vote === 'up' && p.my_votes ? `you voted up with ${p.my_votes}` : 'upvote'}
+              >
+                {activeOp === 'up' ? <Loader2 size={14} className="spinner" /> : <ChevronUp size={14} />}
+                {p.yay}
+                {pv?.direction === 'up' && <span className="vote-pending">+{pv.count}</span>}
+              </button>
+              <button
+                onClick={onNay}
+                disabled={busy}
+                className={(p.my_vote === 'down' ? 'voted' : '') + (pv?.direction === 'down' ? ' pending' : '')}
+                title={p.my_vote === 'down' && p.my_votes ? `you voted down with ${p.my_votes}` : 'downvote'}
+              >
+                {activeOp === 'down' ? <Loader2 size={14} className="spinner" /> : <ChevronDown size={14} />}
+                {p.nay}
+                {pv?.direction === 'down' && <span className="vote-pending">+{pv.count}</span>}
+              </button>
+              {pv && cost !== null && (
+                <>
+                  <button
+                    onClick={onSubmit}
+                    disabled={busy || insufficient}
+                    title={insufficient ? `need ${formatTez(cost)} ꜩ` : `submit ${pv.direction} vote (total ${total})`}
+                  >
+                    vote · {formatTez(cost)} ꜩ
+                  </button>
+                  <button
+                    onClick={onClearPending}
+                    disabled={busy}
+                    className="icon-only"
+                    title="clear pending vote"
+                  >
+                    <XIcon size={12} />
+                  </button>
+                </>
+              )}
+            </>
+          );
+        })()}
         {!isOpen && (
           <span className="muted">yay {p.yay} / nay {p.nay} ({ratio}% yay) · {p.unique_voters} voters</span>
         )}

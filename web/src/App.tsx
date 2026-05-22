@@ -28,7 +28,6 @@ export default function App() {
       try {
         const c = await getConfig();
         setCfg(c);
-        getKernelVars().then(setKernelVars).catch(() => {});
         const sk = loadSecretKey();
         if (sk) {
           const { tezos, address } = await buildToolkit(c, sk);
@@ -38,6 +37,22 @@ export default function App() {
         setErr(e.message ?? String(e));
       }
     })();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const tick = () => {
+      getKernelVars().then(v => { if (!cancelled) setKernelVars(v); }).catch(() => {});
+    };
+    tick();
+    const interval = setInterval(tick, 60_000);
+    const onFocus = () => tick();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
   }, []);
 
   useEffect(() => {
