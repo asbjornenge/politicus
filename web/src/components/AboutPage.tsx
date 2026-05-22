@@ -110,12 +110,18 @@ words: signed content, civic governance, lasting credibility.
 `;
 
 const STATUS_AND_OPEN = `
-Politicus is deployed on **Tezlink Shadownet** — the Michelson layer of
-[Tezos X](https://tezos.com). The reference contracts (Variables, Treasury,
-IdentityRegistry, BitRegistry, PetitionRegistry, ModerationRegistry) are
-live, and the full governance loop has been validated end to end. Real
-BrightID verification, a Beacon wallet integration, and the BitNFT
-collectible layer are the next steps.
+Politicus is currently a **test installation** on **Tezlink Shadownet** —
+the Michelson layer of [Tezos X](https://tezos.com). Shadownet is a
+testnet and can be **reset at any time**, which means accounts, bits,
+votes, and balances here are not durable yet. Treat anything on this
+instance as a preview, not a record.
+
+The reference contracts (Variables, Treasury, IdentityRegistry,
+BitRegistry, PetitionRegistry, ModerationRegistry) are live, and the
+full governance loop has been validated end to end. Real BrightID
+verification, a Beacon wallet integration, and the BitNFT collectible
+layer are the next steps. **Mainnet launch is planned for when
+Michelson on Tezos X ships on mainnet.**
 
 Everything is **open source** at
 [github.com/asbjornenge/politicus](https://github.com/asbjornenge/politicus).
