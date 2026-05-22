@@ -5,14 +5,14 @@ import { saveSecretKey } from '../tezos';
 
 type Step = 'welcome' | 'new' | 'paste';
 
-export function WalletGate({ onLoaded, onCancel }: { onLoaded: () => void; onCancel?: () => void }) {
+export function WalletGate({ onLoaded, onCancel, faucetUrl }: { onLoaded: () => void; onCancel?: () => void; faucetUrl?: string | null }) {
   const [step, setStep] = useState<Step>('welcome');
 
   if (step === 'welcome') {
     return <Welcome onNew={() => setStep('new')} onPaste={() => setStep('paste')} onCancel={onCancel} />;
   }
   if (step === 'new') {
-    return <NewAccount onDone={onLoaded} onBack={() => setStep('welcome')} />;
+    return <NewAccount onDone={onLoaded} onBack={() => setStep('welcome')} faucetUrl={faucetUrl} />;
   }
   return <PasteKey onDone={onLoaded} onBack={() => setStep('welcome')} />;
 }
@@ -43,7 +43,7 @@ function Welcome({ onNew, onPaste, onCancel }: { onNew: () => void; onPaste: () 
   );
 }
 
-function NewAccount({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
+function NewAccount({ onDone, onBack, faucetUrl }: { onDone: () => void; onBack: () => void; faucetUrl?: string | null }) {
   const [keypair, setKeypair] = useState<{ sk: string; address: string } | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -110,13 +110,15 @@ function NewAccount({ onDone, onBack }: { onDone: () => void; onBack: () => void
         </button>
       </div>
 
-      <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 16 }}>
-        To post you'll need some test tez. Get some from the{' '}
-        <a href="https://faucet.shadownet.teztnets.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-soft)' }}>
-          Shadownet faucet
-        </a>{' '}
-        (paste your address there).
-      </p>
+      {faucetUrl && (
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 16 }}>
+          To post you'll need some test tez. Get some from the{' '}
+          <a href={faucetUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-soft)' }}>
+            testnet faucet
+          </a>{' '}
+          (paste your address there).
+        </p>
+      )}
 
       <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16, fontSize: 13 }}>
         <input type="checkbox" checked={saved} onChange={e => setSaved(e.target.checked)} />

@@ -32,7 +32,7 @@ export function ProfilePage({ tezos, cfg, address }: {
   if (!data) {
     const isOwn = target === address;
     if (isOwn && tezos && target) {
-      return <RegisterPrompt tezos={tezos} cfg={cfg} address={target} onDone={reload} />;
+      return <RegisterPrompt tezos={tezos} cfg={cfg} address={target} onDone={reload} faucetUrl={cfg.faucetUrl} />;
     }
     return (
       <div className="bit">
@@ -76,6 +76,7 @@ export function ProfilePage({ tezos, cfg, address }: {
             onCancel={() => setEditing(false)}
           />
         )}
+        {isOwn && cfg.faucetUrl && <FaucetLink faucetUrl={cfg.faucetUrl} address={u.address} />}
         {isOwn && <BackupKey />}
       </div>
 
@@ -170,6 +171,35 @@ function EditProfile({
   );
 }
 
+function FaucetLink({ faucetUrl, address }: { faucetUrl: string; address: string }) {
+  const [copied, setCopied] = useState(false);
+  async function copyAddr() {
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  }
+  return (
+    <details style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+      <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--text-secondary)' }}>
+        Get testnet tez
+      </summary>
+      <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 8 }}>
+        Politicus runs on a testnet — posting and voting needs test tez. Get some
+        from the{' '}
+        <a href={faucetUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-soft)' }}>
+          faucet
+        </a>{' '}
+        and paste your address there.
+      </p>
+      <button className="secondary" onClick={copyAddr} style={{ marginTop: 4 }}>
+        {copied ? 'copied!' : 'copy address'}
+      </button>
+    </details>
+  );
+}
+
 function BackupKey() {
   const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -222,12 +252,13 @@ function BackupKey() {
 }
 
 function RegisterPrompt({
-  tezos, cfg, address, onDone,
+  tezos, cfg, address, onDone, faucetUrl,
 }: {
   tezos: TezosToolkit;
   cfg: Config;
   address: string;
   onDone: () => void;
+  faucetUrl: string | null;
 }) {
   const [username, setUsername] = useState(address.slice(0, 8));
   const [bio, setBio] = useState('');
@@ -265,6 +296,15 @@ function RegisterPrompt({
       <div className="muted" style={{ fontFamily: 'monospace', fontSize: 12, marginBottom: 16, wordBreak: 'break-all' }}>
         {address}
       </div>
+      {faucetUrl && (
+        <p className="muted" style={{ fontSize: 12, marginBottom: 16 }}>
+          Registration is an on-chain transaction — you'll need some test tez. Get some from the{' '}
+          <a href={faucetUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-soft)' }}>
+            faucet
+          </a>{' '}
+          and paste your address there.
+        </p>
+      )}
       <input
         style={fieldStyle}
         placeholder="username"

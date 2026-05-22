@@ -17,6 +17,7 @@ export type Bit = {
 
 export type Config = {
   rpcUrl: string;
+  faucetUrl: string | null;
   contracts: {
     Variables: string;
     Treasury: string;

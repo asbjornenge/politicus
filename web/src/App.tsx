@@ -104,6 +104,7 @@ export default function App() {
           <WalletGate
             onLoaded={() => { setWalletPromptOpen(false); window.location.reload(); }}
             onCancel={() => setWalletPromptOpen(false)}
+            faucetUrl={cfg.faucetUrl}
           />
         </div>
       )}

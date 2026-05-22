@@ -7,6 +7,7 @@ const {
   DATABASE_URL,
   PORT = '8080',
   RPC_URL = 'https://rpc.shadownet.teztnets.com',
+  FAUCET_URL = '',
   IPFS_UPLOAD_URL = 'http://localhost:5001',
   IPFS_GATEWAY_URL = 'http://localhost:8080',
   VARIABLES_ADDRESS,
@@ -66,6 +67,7 @@ app.get('/api/kernel-vars', async c => {
 
 app.get('/api/config', c => c.json({
   rpcUrl: RPC_URL,
+  faucetUrl: FAUCET_URL || null,
   contracts: {
     Variables: VARIABLES_ADDRESS,
     Treasury: TREASURY_ADDRESS,
