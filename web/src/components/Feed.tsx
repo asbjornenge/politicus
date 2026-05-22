@@ -150,7 +150,7 @@ export function Feed({ tezos, cfg, address, requestWallet }: {
   return (
     <div>
       {tezos && address ? (
-        <Compose onSubmit={handleSubmit} />
+        <Compose onSubmit={handleSubmit} address={address} />
       ) : (
         <div className="compose" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span className="muted">Sign in to post a bit</span>

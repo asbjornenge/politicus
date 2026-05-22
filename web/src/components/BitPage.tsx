@@ -259,6 +259,7 @@ export function BitPage({ tezos, cfg, address, requestWallet }: {
             parent={b.bid}
             onSubmit={handleReply}
             onCancel={() => setReplying(false)}
+            address={address}
           />
         </div>
       )}
