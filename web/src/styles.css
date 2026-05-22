@@ -119,6 +119,17 @@ header .me {
 
 header .me:hover { color: var(--text-secondary); }
 
+header .me .balance {
+  font-size: 12px;
+  color: var(--text-faint);
+  padding-left: 8px;
+  margin-left: 2px;
+  border-left: 1px solid var(--border);
+}
+
+header .me.low { color: var(--error); }
+header .me.low .balance { color: var(--error); border-left-color: rgba(255, 107, 107, 0.4); }
+
 .compose {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);

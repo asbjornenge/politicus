@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { HashRouter, Routes, Route, NavLink } from 'react-router-dom';
-import { User, LogOut } from 'lucide-react';
+import { User, LogOut, AlertCircle } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
+import { formatTez, LOW_BALANCE_TEZ } from './utils';
 import { Feed } from './components/Feed';
 import { Petitions } from './components/Petitions';
 import { BitPage } from './components/BitPage';
@@ -18,6 +19,7 @@ export default function App() {
   const [tezos, setTezos] = useState<TezosToolkit | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [walletPromptOpen, setWalletPromptOpen] = useState(false);
+  const [balance, setBalance] = useState<number | null>(null);
   const [err, setErr] = useState('');
 
   useEffect(() => {
@@ -36,9 +38,30 @@ export default function App() {
     })();
   }, []);
 
+  useEffect(() => {
+    if (!tezos || !address) { setBalance(null); return; }
+    let cancelled = false;
+    async function fetchBalance() {
+      try {
+        const b = await tezos!.tz.getBalance(address!);
+        if (!cancelled) setBalance(b.toNumber() / 1_000_000);
+      } catch { /* ignore */ }
+    }
+    fetchBalance();
+    const interval = setInterval(fetchBalance, 30_000);
+    const onFocus = () => fetchBalance();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [tezos, address]);
+
   function logout() {
     clearSecretKey();
     setTezos(null); setAddress(null);
+    setBalance(null);
   }
 
   const requestWallet = () => setWalletPromptOpen(true);
@@ -69,9 +92,16 @@ export default function App() {
         <div className="user-actions">
           {address ? (
             <>
-              <NavLink to={`/user/${address}`} className="me" title={address}>
-                <User size={14} />
-                <span className="hide-mobile">{address.slice(0, 12)}…</span>
+              <NavLink
+                to={`/user/${address}`}
+                className={`me${balance !== null && balance < LOW_BALANCE_TEZ ? ' low' : ''}`}
+                title={`${address}${balance !== null ? ` — ${formatTez(balance)} ꜩ` : ''}`}
+              >
+                {balance !== null && balance < LOW_BALANCE_TEZ ? <AlertCircle size={14} /> : <User size={14} />}
+                <span className="hide-mobile">{address.slice(0, 8)}…</span>
+                {balance !== null && (
+                  <span className="balance hide-mobile">{formatTez(balance)} ꜩ</span>
+                )}
               </NavLink>
               <button className="secondary" onClick={logout} title="logout">
                 <LogOut size={14} />
@@ -93,7 +123,7 @@ export default function App() {
         <Route path="/petitions" element={<Petitions tezos={tezos} cfg={cfg} address={address} requestWallet={requestWallet} />} />
         <Route path="/bit/:bid" element={<BitPage tezos={tezos} cfg={cfg} address={address} requestWallet={requestWallet} />} />
         <Route path="/petition/:pid" element={<PetitionPage tezos={tezos} cfg={cfg} address={address} requestWallet={requestWallet} />} />
-        <Route path="/user/:address" element={<ProfilePage tezos={tezos} cfg={cfg} address={address} />} />
+        <Route path="/user/:address" element={<ProfilePage tezos={tezos} cfg={cfg} address={address} balance={balance} />} />
         <Route path="/about" element={<AboutPage />} />
       </Routes>
       {walletPromptOpen && (

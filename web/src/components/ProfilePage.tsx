@@ -5,13 +5,14 @@ import type { TezosToolkit } from '@taquito/taquito';
 import type { Config, Bit, User } from '../api';
 import { getUser } from '../api';
 import { updateProfile, registerUser, placeholderBrightIdHash, loadSecretKey } from '../tezos';
-import { formatBitDate } from '../utils';
+import { formatBitDate, formatTez, LOW_BALANCE_TEZ } from '../utils';
 import { Markdown } from './Markdown';
 
-export function ProfilePage({ tezos, cfg, address }: {
+export function ProfilePage({ tezos, cfg, address, balance }: {
   tezos: TezosToolkit | null;
   cfg: Config;
   address: string | null;
+  balance: number | null;
 }) {
   const { address: target } = useParams<{ address: string }>();
   const [data, setData] = useState<{ user: User; bits: Bit[] } | null>(null);
@@ -76,6 +77,7 @@ export function ProfilePage({ tezos, cfg, address }: {
             onCancel={() => setEditing(false)}
           />
         )}
+        {isOwn && balance !== null && <BalanceLine balance={balance} hasFaucet={!!cfg.faucetUrl} />}
         {isOwn && cfg.faucetUrl && <FaucetLink faucetUrl={cfg.faucetUrl} address={u.address} />}
         {isOwn && <BackupKey />}
       </div>
@@ -167,6 +169,29 @@ function EditProfile({
         <button onClick={onCancel} disabled={busy} className="secondary">cancel</button>
       </div>
       {err && <div className="error" style={{ marginTop: 8 }}>{err}</div>}
+    </div>
+  );
+}
+
+function BalanceLine({ balance, hasFaucet }: { balance: number; hasFaucet: boolean }) {
+  const low = balance < LOW_BALANCE_TEZ;
+  return (
+    <div style={{
+      marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)',
+      display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap',
+    }}>
+      <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Balance</span>
+      <span style={{
+        fontFamily: 'var(--font-mono)', fontSize: 15,
+        color: low ? 'var(--error)' : 'var(--text)',
+      }}>
+        {formatTez(balance)} ꜩ
+      </span>
+      {low && (
+        <span style={{ fontSize: 12, color: 'var(--error)' }}>
+          low{hasFaucet ? ' — top up below' : ''}
+        </span>
+      )}
     </div>
   );
 }
