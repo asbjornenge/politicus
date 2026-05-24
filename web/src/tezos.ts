@@ -184,6 +184,69 @@ export async function sendResolvePetition(
   return await c.methodsObject.resolve_petition(pid).send();
 }
 
+export async function sendCreateSyndicate(
+  tezos: TezosToolkit,
+  cfg: Config,
+  name: string,
+  bio: string,
+) {
+  if (!cfg.contracts.SyndicateRegistry) throw new Error('SyndicateRegistry not deployed');
+  const cost = await readVariable(tezos, cfg, 'SyndicateCreationCost');
+  if (cost == null) throw new Error('SyndicateCreationCost not set');
+  const c = await tezos.contract.at(cfg.contracts.SyndicateRegistry);
+  return await c.methodsObject
+    .create_syndicate({ 0: name, 1: bio })
+    .send({ amount: Number(cost), mutez: true });
+}
+
+export async function sendAddMember(tezos: TezosToolkit, cfg: Config, sid: string, who: string) {
+  if (!cfg.contracts.SyndicateRegistry) throw new Error('SyndicateRegistry not deployed');
+  const c = await tezos.contract.at(cfg.contracts.SyndicateRegistry);
+  return await c.methodsObject.add_member({ 0: sid, 1: who }).send();
+}
+
+export async function sendRemoveMember(tezos: TezosToolkit, cfg: Config, sid: string, who: string) {
+  if (!cfg.contracts.SyndicateRegistry) throw new Error('SyndicateRegistry not deployed');
+  const c = await tezos.contract.at(cfg.contracts.SyndicateRegistry);
+  return await c.methodsObject.remove_member({ 0: sid, 1: who }).send();
+}
+
+export async function sendPromoteAdmin(tezos: TezosToolkit, cfg: Config, sid: string, who: string) {
+  if (!cfg.contracts.SyndicateRegistry) throw new Error('SyndicateRegistry not deployed');
+  const c = await tezos.contract.at(cfg.contracts.SyndicateRegistry);
+  return await c.methodsObject.promote_admin({ 0: sid, 1: who }).send();
+}
+
+export async function sendDemoteAdmin(tezos: TezosToolkit, cfg: Config, sid: string, who: string) {
+  if (!cfg.contracts.SyndicateRegistry) throw new Error('SyndicateRegistry not deployed');
+  const c = await tezos.contract.at(cfg.contracts.SyndicateRegistry);
+  return await c.methodsObject.demote_admin({ 0: sid, 1: who }).send();
+}
+
+export async function sendUpdateSyndicateMetadata(tezos: TezosToolkit, cfg: Config, sid: string, name: string, bio: string) {
+  if (!cfg.contracts.SyndicateRegistry) throw new Error('SyndicateRegistry not deployed');
+  const c = await tezos.contract.at(cfg.contracts.SyndicateRegistry);
+  return await c.methodsObject.update_metadata({ 0: sid, 1: name, 2: bio }).send();
+}
+
+export async function sendUpdateUserProfile(tezos: TezosToolkit, cfg: Config, profileHash: string) {
+  if (!cfg.contracts.ProfileRegistry) throw new Error('ProfileRegistry not deployed');
+  const c = await tezos.contract.at(cfg.contracts.ProfileRegistry);
+  return await c.methodsObject.update_user_profile(cidToHexBytes(profileHash)).send();
+}
+
+export async function sendClearUserProfile(tezos: TezosToolkit, cfg: Config) {
+  if (!cfg.contracts.ProfileRegistry) throw new Error('ProfileRegistry not deployed');
+  const c = await tezos.contract.at(cfg.contracts.ProfileRegistry);
+  return await c.methodsObject.clear_user_profile().send();
+}
+
+export async function sendUpdateSyndicateProfile(tezos: TezosToolkit, cfg: Config, sid: string, profileHash: string) {
+  if (!cfg.contracts.ProfileRegistry) throw new Error('ProfileRegistry not deployed');
+  const c = await tezos.contract.at(cfg.contracts.ProfileRegistry);
+  return await c.methodsObject.update_syndicate_profile({ 0: sid, 1: cidToHexBytes(profileHash) }).send();
+}
+
 // Legacy wrappers that fully await confirmation. Kept for the few callers that
 // don't need granular progress (vote/resolve buttons).
 

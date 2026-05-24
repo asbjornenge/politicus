@@ -19,6 +19,7 @@ export type Bit = {
 export type Config = {
   rpcUrl: string;
   faucetUrl: string | null;
+  ipfsGateway: string;
   contracts: {
     Variables: string;
     Treasury: string;
@@ -26,7 +27,28 @@ export type Config = {
     BitRegistry: string;
     PetitionRegistry: string;
     ModerationRegistry: string;
+    SyndicateRegistry?: string;
+    ProfileRegistry?: string;
   };
+};
+
+export type Syndicate = {
+  sid: string;
+  name: string;
+  bio: string;
+  creator: string;
+  creation_time: string;
+  member_count: number;
+  admin_count: number;
+  bit_count: number;
+  profile_hash: string | null;
+};
+
+export type SyndicateMember = {
+  address: string;
+  username: string | null;
+  is_admin: boolean;
+  joined_at: string;
 };
 
 export type Petition = {
@@ -98,12 +120,22 @@ export async function listPetitions(viewer?: string): Promise<Petition[]> {
   return petitions;
 }
 
+export type ProfileLink = { name: string; url: string };
+export type ProfileDoc = {
+  version: 1;
+  avatar?: string;
+  tagline?: string;
+  location?: string;
+  links?: ProfileLink[];
+};
+
 export type User = {
   address: string;
   username: string;
   bio: string;
   brightid_hash: string;
   moderated: boolean;
+  profile_hash: string | null;
 };
 
 export async function getUser(address: string): Promise<{ user: User; bits: Bit[] } | null> {
@@ -117,4 +149,61 @@ export async function getKernelVars(): Promise<Record<string, string>> {
   if (!r.ok) return {};
   const { values } = await r.json();
   return values ?? {};
+}
+
+export async function listSyndicates(): Promise<Syndicate[]> {
+  const r = await fetch('/api/syndicates');
+  if (!r.ok) return [];
+  const { syndicates } = await r.json();
+  return syndicates;
+}
+
+export type SyndicateDetail = {
+  syndicate: Syndicate;
+  members: SyndicateMember[];
+  bits: Bit[];
+};
+
+export async function getSyndicate(sid: string, viewer?: string): Promise<SyndicateDetail | null> {
+  const q = viewer ? `?viewer=${viewer}` : '';
+  const r = await fetch(`/api/syndicates/${sid}${q}`);
+  if (!r.ok) return null;
+  return r.json();
+}
+
+export async function postProfile(doc: ProfileDoc): Promise<string> {
+  const r = await fetch('/api/profile', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(doc),
+  });
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(`profile upload failed: ${t}`);
+  }
+  const { hash } = await r.json();
+  return hash;
+}
+
+export async function getProfileDoc(hash: string): Promise<ProfileDoc | null> {
+  const r = await fetch(`/api/content/${hash}`);
+  if (!r.ok) return null;
+  const { body } = await r.json();
+  try { return JSON.parse(body); } catch { return null; }
+}
+
+export async function uploadImage(file: File): Promise<string> {
+  const form = new FormData();
+  form.append('file', file);
+  const r = await fetch('/api/upload', { method: 'POST', body: form });
+  if (!r.ok) throw new Error('image upload failed');
+  const { cid } = await r.json();
+  return cid;
+}
+
+export async function listMySyndicates(address: string): Promise<Array<Syndicate & { is_admin: boolean }>> {
+  const r = await fetch(`/api/users/${address}/syndicates`);
+  if (!r.ok) return [];
+  const { syndicates } = await r.json();
+  return syndicates;
 }

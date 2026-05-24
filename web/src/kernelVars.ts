@@ -24,6 +24,8 @@ export const KERNEL_VARS: KernelVar[] = [
     description: 'Cost to create a petition that replaces the kernel contract code. Not yet implemented.' },
   { key: 'PetitionVoteCost', group: 'Action costs', unit: 'mutez',
     description: 'Cost per petition vote, quadratic — N votes costs unit × N² mutez.' },
+  { key: 'SyndicateCreationCost', group: 'Action costs', unit: 'mutez',
+    description: 'Cost to create a new syndicate (multi-author group identity). Paid to Treasury.' },
 
   { key: 'PetitionContentModerationQuorum', group: 'Quorum thresholds', unit: 'bps',
     description: 'Minimum share of registered users who must vote on a content-moderation petition for it to be valid. 10000 bps = 100%.' },

@@ -15,6 +15,8 @@
     "originate:bit": "node scripts/originate-bit.mjs",
     "originate:moderation": "node scripts/originate-moderation.mjs",
     "originate:petition": "node scripts/originate-petition.mjs",
+    "originate:syndicate": "node scripts/originate-syndicate.mjs",
+    "originate:profile": "node scripts/originate-profile.mjs",
     "setup-petition-test": "node scripts/setup-petition-test.mjs",
     "transfer-admin": "node scripts/transfer-variables-admin.mjs",
     "transfer-moderation-admin": "node scripts/transfer-moderation-admin.mjs",

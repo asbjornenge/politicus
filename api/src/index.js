@@ -2,6 +2,12 @@ import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { cors } from 'hono/cors';
 import postgres from 'postgres';
+import { packDataBytes } from '@taquito/michel-codec';
+
+function packAddressHex(addr) {
+  const packed = packDataBytes({ string: addr }, { prim: 'address' });
+  return packed.bytes;
+}
 
 const {
   DATABASE_URL,
@@ -16,6 +22,8 @@ const {
   BIT_REGISTRY,
   PETITION_REGISTRY,
   MODERATION_REGISTRY,
+  SYNDICATE_REGISTRY,
+  PROFILE_REGISTRY,
 } = process.env;
 
 if (!DATABASE_URL) { console.error('DATABASE_URL missing'); process.exit(1); }
@@ -68,6 +76,7 @@ app.get('/api/kernel-vars', async c => {
 app.get('/api/config', c => c.json({
   rpcUrl: RPC_URL,
   faucetUrl: FAUCET_URL || null,
+  ipfsGateway: IPFS_GATEWAY_URL,
   contracts: {
     Variables: VARIABLES_ADDRESS,
     Treasury: TREASURY_ADDRESS,
@@ -75,6 +84,8 @@ app.get('/api/config', c => c.json({
     BitRegistry: BIT_REGISTRY,
     PetitionRegistry: PETITION_REGISTRY,
     ModerationRegistry: MODERATION_REGISTRY,
+    SyndicateRegistry: SYNDICATE_REGISTRY || undefined,
+    ProfileRegistry: PROFILE_REGISTRY || undefined,
   },
 }));
 
@@ -98,6 +109,54 @@ app.post('/api/content', async c => {
   await sql`
     INSERT INTO content (hash, body, content_type)
     VALUES (${hash}, ${bytes}, ${contentType})
+    ON CONFLICT (hash) DO NOTHING
+  `;
+  return c.json({ hash, url: `${IPFS_GATEWAY_URL}/${hash}` });
+});
+
+function validateProfile(p) {
+  if (typeof p !== 'object' || p === null) return 'must be object';
+  if (p.version !== 1) return 'version must be 1';
+  const allowed = new Set(['version', 'avatar', 'links', 'location', 'tagline']);
+  for (const k of Object.keys(p)) {
+    if (!allowed.has(k)) return `unknown field "${k}"`;
+  }
+  if (p.avatar !== undefined) {
+    if (typeof p.avatar !== 'string') return 'avatar must be string CID';
+    if (!/^[A-Za-z0-9]{30,80}$/.test(p.avatar)) return 'avatar must look like a CID';
+  }
+  if (p.tagline !== undefined) {
+    if (typeof p.tagline !== 'string' || p.tagline.length > 140) return 'tagline must be string ≤140';
+  }
+  if (p.location !== undefined) {
+    if (typeof p.location !== 'string' || p.location.length > 100) return 'location must be string ≤100';
+  }
+  if (p.links !== undefined) {
+    if (!Array.isArray(p.links)) return 'links must be array';
+    if (p.links.length > 20) return 'too many links (max 20)';
+    for (const l of p.links) {
+      if (typeof l !== 'object' || l === null) return 'link must be object';
+      if (typeof l.name !== 'string' || l.name.length === 0 || l.name.length > 60) return 'link.name must be string 1..60';
+      if (typeof l.url !== 'string' || l.url.length > 500) return 'link.url must be string ≤500';
+      if (!/^https?:\/\//.test(l.url)) return 'link.url must be http(s)';
+    }
+  }
+  return null;
+}
+
+app.post('/api/profile', async c => {
+  const body = await c.req.json().catch(() => null);
+  if (!body) return c.json({ error: 'expected json' }, 400);
+  const err = validateProfile(body);
+  if (err) return c.json({ error: err }, 400);
+  const json = JSON.stringify(body);
+  const bytes = Buffer.from(json, 'utf8');
+  let hash;
+  try { hash = await uploadToIpfs(bytes, 'profile.json'); }
+  catch (e) { return c.json({ error: 'ipfs_unavailable', detail: String(e?.message ?? e) }, 502); }
+  await sql`
+    INSERT INTO content (hash, body, content_type)
+    VALUES (${hash}, ${bytes}, 'application/json')
     ON CONFLICT (hash) DO NOTHING
   `;
   return c.json({ hash, url: `${IPFS_GATEWAY_URL}/${hash}` });
@@ -255,6 +314,12 @@ app.get('/api/users/:address', async c => {
   const userRows = await sql`SELECT * FROM users WHERE address = ${address}`;
   if (userRows.length === 0) return c.json({ error: 'not_found' }, 404);
   const moderated = await sql`SELECT 1 FROM moderated_users WHERE address = ${address}`;
+  let profile_hash = null;
+  try {
+    const profKey = packAddressHex(address);
+    const profRows = await sql`SELECT profile_hash FROM profiles WHERE key = ${profKey}`;
+    if (profRows.length > 0) profile_hash = profRows[0].profile_hash;
+  } catch { /* ignore */ }
   const bitRows = await sql`
     SELECT b.*, c.body, c.content_type, u.username, u.bio,
       EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash) AS content_moderated,
@@ -267,7 +332,7 @@ app.get('/api/users/:address', async c => {
     LIMIT 50
   `;
   return c.json({
-    user: { ...userRows[0], moderated: moderated.length > 0 },
+    user: { ...userRows[0], moderated: moderated.length > 0, profile_hash },
     bits: bitRows.map(formatBit),
   });
 });
@@ -303,6 +368,91 @@ app.get('/api/petitions/:pid', async c => {
   if (rows.length === 0) return c.json({ error: 'not_found' }, 404);
   return c.json({ petition: formatPetition(rows[0]) });
 });
+
+// --- Syndicates ---
+
+app.get('/api/syndicates', async c => {
+  const rows = await sql`
+    SELECT s.*,
+      (SELECT count(*) FROM syndicate_members m WHERE m.sid = s.sid) AS member_count,
+      (SELECT count(*) FROM syndicate_members m WHERE m.sid = s.sid AND m.is_admin) AS admin_count,
+      (SELECT count(*) FROM bits b WHERE b.syndicate = s.sid) AS bit_count,
+      (SELECT profile_hash FROM profiles WHERE key = s.sid) AS profile_hash
+    FROM syndicates s
+    ORDER BY s.creation_time DESC
+  `;
+  return c.json({ syndicates: rows.map(formatSyndicate) });
+});
+
+app.get('/api/syndicates/:sid', async c => {
+  const sid = c.req.param('sid');
+  const viewer = c.req.query('viewer') ?? '';
+  const sRows = await sql`
+    SELECT s.*,
+      (SELECT count(*) FROM syndicate_members m WHERE m.sid = s.sid) AS member_count,
+      (SELECT count(*) FROM syndicate_members m WHERE m.sid = s.sid AND m.is_admin) AS admin_count,
+      (SELECT count(*) FROM bits b WHERE b.syndicate = s.sid) AS bit_count,
+      (SELECT profile_hash FROM profiles WHERE key = s.sid) AS profile_hash
+    FROM syndicates s WHERE s.sid = ${sid}
+  `;
+  if (sRows.length === 0) return c.json({ error: 'not_found' }, 404);
+  const members = await sql`
+    SELECT m.address, m.is_admin, m.joined_at, u.username
+    FROM syndicate_members m
+    LEFT JOIN users u ON u.address = m.address
+    WHERE m.sid = ${sid}
+    ORDER BY m.is_admin DESC, m.joined_at ASC
+  `;
+  const bits = await sql`
+    SELECT b.*, c.body, c.content_type, u.username, u.bio,
+      v.direction AS my_vote, v.votes AS my_votes,
+      EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash) AS content_moderated,
+      EXISTS (SELECT 1 FROM moderated_users mu WHERE mu.address = b.creator) AS creator_moderated
+    FROM bits b
+    LEFT JOIN content c ON c.hash = b.content_hash
+    LEFT JOIN users u ON u.address = b.creator
+    LEFT JOIN votes v ON v.bid = b.bid AND v.voter = ${viewer}
+    WHERE b.syndicate = ${sid}
+    ORDER BY b.creation_time DESC
+    LIMIT 50
+  `;
+  return c.json({
+    syndicate: formatSyndicate(sRows[0]),
+    members: members.map(m => ({
+      address: m.address,
+      username: m.username ?? null,
+      is_admin: m.is_admin,
+      joined_at: m.joined_at,
+    })),
+    bits: bits.map(formatBit),
+  });
+});
+
+app.get('/api/users/:address/syndicates', async c => {
+  const address = c.req.param('address');
+  const rows = await sql`
+    SELECT s.*, m.is_admin
+    FROM syndicate_members m
+    JOIN syndicates s ON s.sid = m.sid
+    WHERE m.address = ${address}
+    ORDER BY s.creation_time DESC
+  `;
+  return c.json({ syndicates: rows.map(r => ({ ...formatSyndicate(r), is_admin: r.is_admin })) });
+});
+
+function formatSyndicate(row) {
+  return {
+    sid: row.sid,
+    name: row.name,
+    bio: row.bio,
+    creator: row.creator,
+    creation_time: row.creation_time,
+    member_count: Number(row.member_count ?? 0),
+    admin_count: Number(row.admin_count ?? 0),
+    bit_count: Number(row.bit_count ?? 0),
+    profile_hash: row.profile_hash ?? null,
+  };
+}
 
 function formatPetition(row) {
   let payload = row.action_payload;

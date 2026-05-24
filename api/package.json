@@ -9,6 +9,7 @@
   "dependencies": {
     "hono": "^4.6.0",
     "@hono/node-server": "^1.13.0",
-    "postgres": "^3.4.5"
+    "postgres": "^3.4.5",
+    "@taquito/michel-codec": "^24.3.0"
   }
 }

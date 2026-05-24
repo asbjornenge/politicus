@@ -7,6 +7,8 @@ const {
   BIT_REGISTRY,
   PETITION_REGISTRY,
   MODERATION_REGISTRY,
+  SYNDICATE_REGISTRY,
+  PROFILE_REGISTRY,
   POLL_INTERVAL_MS = '10000',
 } = process.env;
 
@@ -109,6 +111,48 @@ async function applyBigmapUpdate(u, ptrs) {
       VALUES (${key}, ${value})
       ON CONFLICT (content_hash) DO UPDATE SET moderated_at = EXCLUDED.moderated_at, updated_at = now()
     `;
+  } else if (bigmap === ptrs.profiles) {
+    if (action === 'remove_key') {
+      await sql`DELETE FROM profiles WHERE key = ${key}`;
+      return;
+    }
+    if (!value) return;
+    const profileHash = decodeContentHash(value);
+    await sql`
+      INSERT INTO profiles (key, profile_hash)
+      VALUES (${key}, ${profileHash})
+      ON CONFLICT (key) DO UPDATE SET
+        profile_hash = EXCLUDED.profile_hash,
+        updated_at = now()
+    `;
+  } else if (bigmap === ptrs.syndicates) {
+    if (action === 'remove_key') {
+      await sql`DELETE FROM syndicate_members WHERE sid = ${key}`;
+      await sql`DELETE FROM syndicates WHERE sid = ${key}`;
+      return;
+    }
+    if (!value) return;
+    await sql`
+      INSERT INTO syndicates (sid, name, bio, creator, creation_time)
+      VALUES (${key}, ${value.name ?? ''}, ${value.bio ?? ''}, ${value.creator}, ${value.creation_time})
+      ON CONFLICT (sid) DO UPDATE SET
+        name = EXCLUDED.name,
+        bio = EXCLUDED.bio,
+        updated_at = now()
+    `;
+    const admins = Array.isArray(value.admins) ? value.admins : [];
+    const members = Array.isArray(value.members) ? value.members : [];
+    const adminSet = new Set(admins);
+    const all = new Set([...admins, ...members]);
+    await sql`DELETE FROM syndicate_members WHERE sid = ${key} AND address NOT IN ${sql([...all, ''])}`;
+    for (const addr of all) {
+      const isAdmin = adminSet.has(addr);
+      await sql`
+        INSERT INTO syndicate_members (sid, address, is_admin)
+        VALUES (${key}, ${addr}, ${isAdmin})
+        ON CONFLICT (sid, address) DO UPDATE SET is_admin = EXCLUDED.is_admin
+      `;
+    }
   } else if (bigmap === ptrs.mod_users) {
     if (action === 'remove_key') {
       await sql`DELETE FROM moderated_users WHERE address = ${key}`;
@@ -153,7 +197,7 @@ async function applyBigmapUpdate(u, ptrs) {
 }
 
 async function pollBigmaps(ptrs) {
-  const targets = [ptrs.bits, ptrs.users, ptrs.petitions, ptrs.mod_content, ptrs.mod_users].filter(Boolean);
+  const targets = [ptrs.bits, ptrs.users, ptrs.petitions, ptrs.mod_content, ptrs.mod_users, ptrs.syndicates, ptrs.profiles].filter(Boolean);
   if (targets.length === 0) return;
 
   while (true) {
@@ -251,12 +295,16 @@ async function main() {
   const br = await getBigmapPtrs(BIT_REGISTRY);
   const pr = await getBigmapPtrs(PETITION_REGISTRY);
   const mr = await getBigmapPtrs(MODERATION_REGISTRY);
+  const sr = SYNDICATE_REGISTRY ? await getBigmapPtrs(SYNDICATE_REGISTRY) : {};
+  const prof = PROFILE_REGISTRY ? await getBigmapPtrs(PROFILE_REGISTRY) : {};
   const ptrs = {
     users: id.users,
     bits: br.bits,
     petitions: pr.petitions,
     mod_content: mr.moderated_content,
     mod_users: mr.moderated_users,
+    syndicates: sr.syndicates,
+    profiles: prof.profiles,
   };
   console.log(`  Bigmap pointers:`, ptrs);
 

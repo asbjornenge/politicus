@@ -8,6 +8,8 @@ import { Petitions } from './components/Petitions';
 import { BitPage } from './components/BitPage';
 import { PetitionPage } from './components/PetitionPage';
 import { ProfilePage } from './components/ProfilePage';
+import { Syndicates } from './components/Syndicates';
+import { SyndicatePage } from './components/SyndicatePage';
 import { AboutPage } from './components/AboutPage';
 import { WalletGate } from './components/WalletGate';
 import { getConfig, getKernelVars } from './api';
@@ -133,6 +135,7 @@ export default function App() {
       <nav style={{ display: 'flex', gap: 24, marginBottom: 20, borderBottom: '1px solid var(--border)' }}>
         <NavLink to="/" end style={navLinkStyle}>feed</NavLink>
         <NavLink to="/petitions" style={navLinkStyle}>petitions</NavLink>
+        <NavLink to="/syndicates" style={navLinkStyle}>syndicates</NavLink>
         <NavLink to="/about" style={navLinkStyle}>about</NavLink>
       </nav>
       <Routes>
@@ -141,6 +144,8 @@ export default function App() {
         <Route path="/bit/:bid" element={<BitPage tezos={tezos} cfg={cfg} address={address} balance={balance} kernelVars={kernelVars} requestWallet={requestWallet} />} />
         <Route path="/petition/:pid" element={<PetitionPage tezos={tezos} cfg={cfg} address={address} requestWallet={requestWallet} />} />
         <Route path="/user/:address" element={<ProfilePage tezos={tezos} cfg={cfg} address={address} balance={balance} />} />
+        <Route path="/syndicates" element={<Syndicates tezos={tezos} cfg={cfg} address={address} balance={balance} kernelVars={kernelVars} requestWallet={requestWallet} />} />
+        <Route path="/syndicate/:sid" element={<SyndicatePage tezos={tezos} cfg={cfg} address={address} />} />
         <Route path="/about" element={<AboutPage />} />
       </Routes>
       {walletPromptOpen && (

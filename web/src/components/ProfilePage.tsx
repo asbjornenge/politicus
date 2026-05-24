@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronUp, ChevronDown, Flag } from 'lucide-react';
+import { ChevronUp, ChevronDown, Flag, X as XIcon, MapPin, Link as LinkIcon } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
-import type { Config, Bit, User } from '../api';
-import { getUser } from '../api';
-import { updateProfile, registerUser, placeholderBrightIdHash, loadSecretKey } from '../tezos';
+import type { Config, Bit, User, ProfileDoc, ProfileLink } from '../api';
+import { getUser, getProfileDoc, postProfile, uploadImage } from '../api';
+import { updateProfile, registerUser, placeholderBrightIdHash, loadSecretKey, sendUpdateUserProfile } from '../tezos';
 import { formatBitDate, formatTez, LOW_BALANCE_TEZ } from '../utils';
 import { Markdown } from './Markdown';
+import { Avatar } from './Avatar';
 
 export function ProfilePage({ tezos, cfg, address, balance }: {
   tezos: TezosToolkit | null;
@@ -16,17 +17,26 @@ export function ProfilePage({ tezos, cfg, address, balance }: {
 }) {
   const { address: target } = useParams<{ address: string }>();
   const [data, setData] = useState<{ user: User; bits: Bit[] } | null>(null);
+  const [profile, setProfile] = useState<ProfileDoc | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
 
   async function reload() {
     if (!target) return;
     setLoading(true);
-    try { setData(await getUser(target)); }
-    finally { setLoading(false); }
+    try {
+      const d = await getUser(target);
+      setData(d);
+      if (d?.user.profile_hash) {
+        setProfile(await getProfileDoc(d.user.profile_hash));
+      } else {
+        setProfile(null);
+      }
+    } finally { setLoading(false); }
   }
 
-  useEffect(() => { reload(); setEditing(false); }, [target]);
+  useEffect(() => { reload(); setEditing(false); setEditingProfile(false); }, [target]);
 
   if (loading) return <p className="muted">loading…</p>;
 
@@ -51,21 +61,42 @@ export function ProfilePage({ tezos, cfg, address, balance }: {
   return (
     <div>
       <div className="bit">
-        <div className="meta">
-          <span className="creator" style={{ fontSize: 16 }}>{u.username}</span>
-          {u.moderated && (
-            <span className="error" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <Flag size={14} /> moderated
-            </span>
-          )}
+        <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+          <Avatar cid={profile?.avatar ?? null} gateway={cfg.ipfsGateway} size={64} kind="user" />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="meta">
+              <span className="creator" style={{ fontSize: 16 }}>{u.username}</span>
+              {u.moderated && (
+                <span className="error" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <Flag size={14} /> moderated
+                </span>
+              )}
+            </div>
+            {profile?.tagline && (
+              <div style={{ fontFamily: 'var(--font-italic)', fontStyle: 'italic', fontSize: 14, color: 'var(--text-secondary)', marginTop: 4 }}>
+                {profile.tagline}
+              </div>
+            )}
+          </div>
         </div>
-        {u.bio && <div className="content" style={{ marginTop: 8 }}>{u.bio}</div>}
+        {u.bio && <div className="content" style={{ marginTop: 12 }}>{u.bio}</div>}
+        {(profile?.location || (profile?.links && profile.links.length > 0)) && (
+          <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 14, fontSize: 12, color: 'var(--text-muted)' }}>
+            {profile.location && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><MapPin size={12} /> {profile.location}</span>}
+            {profile.links?.map((l, i) => (
+              <a key={i} href={l.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-soft)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <LinkIcon size={12} /> {l.name}
+              </a>
+            ))}
+          </div>
+        )}
         <div className="muted" style={{ fontSize: 12, fontFamily: 'monospace', marginTop: 12, wordBreak: 'break-all' }}>
           {u.address}
         </div>
-        {isOwn && !editing && (
+        {isOwn && !editing && !editingProfile && (
           <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-            <button onClick={() => setEditing(true)}>edit profile</button>
+            <button onClick={() => setEditing(true)}>edit name/bio</button>
+            <button onClick={() => setEditingProfile(true)} className="secondary">edit avatar/links</button>
           </div>
         )}
         {isOwn && editing && tezos && (
@@ -75,6 +106,15 @@ export function ProfilePage({ tezos, cfg, address, balance }: {
             user={u}
             onDone={() => { setEditing(false); reload(); }}
             onCancel={() => setEditing(false)}
+          />
+        )}
+        {isOwn && editingProfile && tezos && (
+          <EditAvatarProfile
+            tezos={tezos}
+            cfg={cfg}
+            current={profile}
+            onDone={() => { setEditingProfile(false); setTimeout(reload, 4000); }}
+            onCancel={() => setEditingProfile(false)}
           />
         )}
         {isOwn && balance !== null && <BalanceLine balance={balance} hasFaucet={!!cfg.faucetUrl} />}
@@ -168,6 +208,143 @@ function EditProfile({
         <button onClick={save} disabled={busy}>{busy ? 'saving…' : 'save'}</button>
         <button onClick={onCancel} disabled={busy} className="secondary">cancel</button>
       </div>
+      {err && <div className="error" style={{ marginTop: 8 }}>{err}</div>}
+    </div>
+  );
+}
+
+function EditAvatarProfile({
+  tezos, cfg, current, onDone, onCancel,
+}: {
+  tezos: TezosToolkit;
+  cfg: Config;
+  current: ProfileDoc | null;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const [avatar, setAvatar] = useState<string | undefined>(current?.avatar);
+  const [tagline, setTagline] = useState<string>(current?.tagline ?? '');
+  const [location, setLocation] = useState<string>(current?.location ?? '');
+  const [links, setLinks] = useState<ProfileLink[]>(current?.links ?? []);
+  const [uploading, setUploading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('');
+  const [err, setErr] = useState('');
+
+  async function pickAvatar(file: File) {
+    setUploading(true); setErr('');
+    try {
+      const cid = await uploadImage(file);
+      setAvatar(cid);
+    } catch (e: any) { setErr(e.message ?? String(e)); }
+    finally { setUploading(false); }
+  }
+
+  async function save() {
+    setBusy(true); setErr('');
+    try {
+      const doc: ProfileDoc = { version: 1 };
+      if (avatar) doc.avatar = avatar;
+      if (tagline.trim()) doc.tagline = tagline.trim();
+      if (location.trim()) doc.location = location.trim();
+      const cleanLinks = links.filter(l => l.name.trim() && l.url.trim());
+      if (cleanLinks.length > 0) doc.links = cleanLinks;
+      setStatus('uploading profile…');
+      const hash = await postProfile(doc);
+      setStatus('signing transaction…');
+      const op = await sendUpdateUserProfile(tezos, cfg, hash);
+      setStatus(`in mempool (${op.hash.slice(0, 10)}…)`);
+      await op.confirmation();
+      setStatus('confirmed, waiting for indexer…');
+      onDone();
+    } catch (e: any) {
+      setErr(e.message ?? String(e));
+      setBusy(false);
+    }
+  }
+
+  const fieldStyle: React.CSSProperties = {
+    width: '100%',
+    background: 'var(--bg)',
+    border: '1px solid var(--border)',
+    color: 'inherit',
+    padding: 6,
+    borderRadius: 4,
+    fontFamily: 'inherit',
+    marginBottom: 8,
+  };
+
+  return (
+    <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 12 }}>
+        <Avatar cid={avatar ?? null} gateway={cfg.ipfsGateway} size={64} kind="user" />
+        <label style={{ cursor: 'pointer' }}>
+          <span className="secondary" style={{ display: 'inline-block', padding: '6px 12px', border: '1px solid var(--border-strong)', borderRadius: 4, fontSize: 13 }}>
+            {uploading ? 'uploading…' : (avatar ? 'replace avatar' : 'upload avatar')}
+          </span>
+          <input
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={e => { const f = e.target.files?.[0]; if (f) pickAvatar(f); }}
+            disabled={uploading || busy}
+          />
+        </label>
+        {avatar && (
+          <button className="secondary" onClick={() => setAvatar(undefined)} disabled={busy}>remove</button>
+        )}
+      </div>
+      <input
+        style={fieldStyle}
+        placeholder="tagline (≤140 chars)"
+        value={tagline}
+        onChange={e => setTagline(e.target.value.slice(0, 140))}
+        disabled={busy}
+      />
+      <input
+        style={fieldStyle}
+        placeholder="location (e.g. Oslo)"
+        value={location}
+        onChange={e => setLocation(e.target.value.slice(0, 100))}
+        disabled={busy}
+      />
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Links</div>
+      {links.map((l, i) => (
+        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+          <input
+            style={{ ...fieldStyle, flex: 1, marginBottom: 0 }}
+            placeholder="name"
+            value={l.name}
+            onChange={e => setLinks(ls => ls.map((x, j) => j === i ? { ...x, name: e.target.value.slice(0, 60) } : x))}
+            disabled={busy}
+          />
+          <input
+            style={{ ...fieldStyle, flex: 2, marginBottom: 0 }}
+            placeholder="https://..."
+            value={l.url}
+            onChange={e => setLinks(ls => ls.map((x, j) => j === i ? { ...x, url: e.target.value.slice(0, 500) } : x))}
+            disabled={busy}
+          />
+          <button className="secondary icon-only" onClick={() => setLinks(ls => ls.filter((_, j) => j !== i))} disabled={busy} title="remove">
+            <XIcon size={12} />
+          </button>
+        </div>
+      ))}
+      {links.length < 20 && (
+        <button
+          className="secondary"
+          onClick={() => setLinks(ls => [...ls, { name: '', url: '' }])}
+          disabled={busy}
+          style={{ marginBottom: 12 }}
+        >
+          + link
+        </button>
+      )}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={save} disabled={busy || uploading}>{busy ? 'saving…' : 'save'}</button>
+        <button onClick={onCancel} disabled={busy} className="secondary">cancel</button>
+      </div>
+      {status && <div className="muted" style={{ marginTop: 8, fontSize: 12, fontStyle: 'italic' }}>{status}</div>}
       {err && <div className="error" style={{ marginTop: 8 }}>{err}</div>}
     </div>
   );

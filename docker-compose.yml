@@ -30,6 +30,8 @@ services:
       BIT_REGISTRY: ${BIT_REGISTRY}
       PETITION_REGISTRY: ${PETITION_REGISTRY}
       MODERATION_REGISTRY: ${MODERATION_REGISTRY}
+      SYNDICATE_REGISTRY: ${SYNDICATE_REGISTRY}
+      PROFILE_REGISTRY: ${PROFILE_REGISTRY}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.politicus-api.rule=Host(`${POLITICUS_HOST}`) && PathPrefix(`/api`)"
@@ -51,6 +53,8 @@ services:
       BIT_REGISTRY: ${BIT_REGISTRY}
       PETITION_REGISTRY: ${PETITION_REGISTRY}
       MODERATION_REGISTRY: ${MODERATION_REGISTRY}
+      SYNDICATE_REGISTRY: ${SYNDICATE_REGISTRY}
+      PROFILE_REGISTRY: ${PROFILE_REGISTRY}
       POLL_INTERVAL_MS: "10000"
     depends_on:
       db:
