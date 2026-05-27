@@ -123,6 +123,8 @@ export async function listPetitions(viewer?: string): Promise<Petition[]> {
 export type ProfileLink = { name: string; url: string };
 export type ProfileDoc = {
   version: 1;
+  username?: string;
+  bio?: string;
   avatar?: string;
   tagline?: string;
   location?: string;

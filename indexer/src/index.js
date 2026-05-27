@@ -1,4 +1,5 @@
 import postgres from 'postgres';
+import { packDataBytes } from '@taquito/michel-codec';
 
 const {
   DATABASE_URL,
@@ -9,8 +10,56 @@ const {
   MODERATION_REGISTRY,
   SYNDICATE_REGISTRY,
   PROFILE_REGISTRY,
+  IPFS_GATEWAY_URL = '',
   POLL_INTERVAL_MS = '10000',
 } = process.env;
+
+function packAddressHex(addr) {
+  return packDataBytes({ string: addr }, { prim: 'address' }).bytes;
+}
+
+async function fetchProfileJson(hash) {
+  const rows = await sql`SELECT body FROM content WHERE hash = ${hash}`;
+  if (rows.length > 0) {
+    try { return JSON.parse(rows[0].body.toString('utf8')); } catch { return null; }
+  }
+  if (!IPFS_GATEWAY_URL) return null;
+  try {
+    const r = await fetch(`${IPFS_GATEWAY_URL}/${hash}`);
+    if (!r.ok) return null;
+    const text = await r.text();
+    await sql`
+      INSERT INTO content (hash, body, content_type)
+      VALUES (${hash}, ${Buffer.from(text, 'utf8')}, 'application/json')
+      ON CONFLICT (hash) DO NOTHING
+    `;
+    return JSON.parse(text);
+  } catch { return null; }
+}
+
+async function applyProfileToUser(packedKey, doc) {
+  const u = await sql`SELECT address, username, bio FROM users WHERE packed_key = ${packedKey}`;
+  if (u.length === 0) return;
+  const username = (typeof doc?.username === 'string' && doc.username.trim()) ? doc.username : u[0].username;
+  const bio = (typeof doc?.bio === 'string') ? doc.bio : u[0].bio;
+  await sql`
+    UPDATE users
+    SET username = ${username}, bio = ${bio}, updated_at = now()
+    WHERE packed_key = ${packedKey}
+  `;
+}
+
+async function applyProfileToSyndicate(sid, doc) {
+  const s = await sql`SELECT name, bio FROM syndicates WHERE sid = ${sid}`;
+  if (s.length === 0) return;
+  const name = (typeof doc?.name === 'string' && doc.name.trim()) ? doc.name : s[0].name;
+  const bio = (typeof doc?.bio === 'string') ? doc.bio : s[0].bio;
+  await sql`
+    UPDATE syndicates
+    SET name = ${name}, bio = ${bio}, updated_at = now()
+    WHERE sid = ${sid}
+  `;
+}
 
 if (!DATABASE_URL) { console.error('DATABASE_URL missing'); process.exit(1); }
 if (!IDENTITY_REGISTRY || !BIT_REGISTRY || !PETITION_REGISTRY || !MODERATION_REGISTRY) {
@@ -91,13 +140,25 @@ async function applyBigmapUpdate(u, ptrs) {
       return;
     }
     if (!value) return;
+    const packedKey = packAddressHex(key);
     await sql`
-      INSERT INTO users (address, username, bio, brightid_hash)
-      VALUES (${key}, ${value.username}, ${value.bio}, ${value.brightid_hash})
+      INSERT INTO users (address, username, bio, brightid_hash, packed_key)
+      VALUES (${key}, ${value.username}, ${value.bio}, ${value.brightid_hash}, ${packedKey})
       ON CONFLICT (address) DO UPDATE SET
-        username = EXCLUDED.username,
-        bio = EXCLUDED.bio,
+        username = CASE
+          WHEN users.packed_key IS NOT NULL
+            AND EXISTS (SELECT 1 FROM profiles WHERE key = users.packed_key)
+          THEN users.username
+          ELSE EXCLUDED.username
+        END,
+        bio = CASE
+          WHEN users.packed_key IS NOT NULL
+            AND EXISTS (SELECT 1 FROM profiles WHERE key = users.packed_key)
+          THEN users.bio
+          ELSE EXCLUDED.bio
+        END,
         brightid_hash = EXCLUDED.brightid_hash,
+        packed_key = EXCLUDED.packed_key,
         updated_at = now()
     `;
   } else if (bigmap === ptrs.mod_content) {
@@ -125,6 +186,12 @@ async function applyBigmapUpdate(u, ptrs) {
         profile_hash = EXCLUDED.profile_hash,
         updated_at = now()
     `;
+    const doc = await fetchProfileJson(profileHash);
+    if (doc) {
+      const syndCheck = await sql`SELECT 1 FROM syndicates WHERE sid = ${key}`;
+      if (syndCheck.length > 0) await applyProfileToSyndicate(key, doc);
+      else await applyProfileToUser(key, doc);
+    }
   } else if (bigmap === ptrs.syndicates) {
     if (action === 'remove_key') {
       await sql`DELETE FROM syndicate_members WHERE sid = ${key}`;
@@ -284,12 +351,28 @@ async function pollPetitionVoteOps() {
   }
 }
 
+async function backfillPackedKeys() {
+  const rows = await sql`SELECT address FROM users WHERE packed_key IS NULL`;
+  if (rows.length === 0) return;
+  console.log(`Backfilling packed_key for ${rows.length} users`);
+  for (const r of rows) {
+    try {
+      const k = packAddressHex(r.address);
+      await sql`UPDATE users SET packed_key = ${k} WHERE address = ${r.address}`;
+    } catch (e) {
+      console.error(`  pack failed for ${r.address}:`, e.message);
+    }
+  }
+}
+
 async function main() {
   console.log('Indexer starting');
   console.log(`  TzKT:             ${TZKT_API}`);
   console.log(`  IdentityRegistry: ${IDENTITY_REGISTRY}`);
   console.log(`  BitRegistry:      ${BIT_REGISTRY}`);
   console.log(`  Poll interval:    ${pollMs}ms`);
+
+  await backfillPackedKeys();
 
   const id = await getBigmapPtrs(IDENTITY_REGISTRY);
   const br = await getBigmapPtrs(BIT_REGISTRY);

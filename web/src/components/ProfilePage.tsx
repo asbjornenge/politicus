@@ -4,7 +4,7 @@ import { ChevronUp, ChevronDown, Flag, X as XIcon, MapPin, Link as LinkIcon } fr
 import type { TezosToolkit } from '@taquito/taquito';
 import type { Config, Bit, User, ProfileDoc, ProfileLink } from '../api';
 import { getUser, getProfileDoc, postProfile, uploadImage } from '../api';
-import { updateProfile, registerUser, placeholderBrightIdHash, loadSecretKey, sendUpdateUserProfile } from '../tezos';
+import { registerUser, placeholderBrightIdHash, loadSecretKey, sendUpdateUserProfile } from '../tezos';
 import { formatBitDate, formatTez, LOW_BALANCE_TEZ } from '../utils';
 import { Markdown } from './Markdown';
 import { Avatar } from './Avatar';
@@ -20,7 +20,6 @@ export function ProfilePage({ tezos, cfg, address, balance }: {
   const [profile, setProfile] = useState<ProfileDoc | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [editingProfile, setEditingProfile] = useState(false);
 
   async function reload() {
     if (!target) return;
@@ -36,7 +35,7 @@ export function ProfilePage({ tezos, cfg, address, balance }: {
     } finally { setLoading(false); }
   }
 
-  useEffect(() => { reload(); setEditing(false); setEditingProfile(false); }, [target]);
+  useEffect(() => { reload(); setEditing(false); }, [target]);
 
   if (loading) return <p className="muted">loading…</p>;
 
@@ -93,10 +92,9 @@ export function ProfilePage({ tezos, cfg, address, balance }: {
         <div className="muted" style={{ fontSize: 12, fontFamily: 'monospace', marginTop: 12, wordBreak: 'break-all' }}>
           {u.address}
         </div>
-        {isOwn && !editing && !editingProfile && (
+        {isOwn && !editing && (
           <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-            <button onClick={() => setEditing(true)}>edit name/bio</button>
-            <button onClick={() => setEditingProfile(true)} className="secondary">edit avatar/links</button>
+            <button onClick={() => setEditing(true)}>edit profile</button>
           </div>
         )}
         {isOwn && editing && tezos && (
@@ -104,17 +102,9 @@ export function ProfilePage({ tezos, cfg, address, balance }: {
             tezos={tezos}
             cfg={cfg}
             user={u}
-            onDone={() => { setEditing(false); reload(); }}
-            onCancel={() => setEditing(false)}
-          />
-        )}
-        {isOwn && editingProfile && tezos && (
-          <EditAvatarProfile
-            tezos={tezos}
-            cfg={cfg}
             current={profile}
-            onDone={() => { setEditingProfile(false); setTimeout(reload, 4000); }}
-            onCancel={() => setEditingProfile(false)}
+            onDone={() => { setEditing(false); setTimeout(reload, 4000); }}
+            onCancel={() => setEditing(false)}
           />
         )}
         {isOwn && balance !== null && <BalanceLine balance={balance} hasFaucet={!!cfg.faucetUrl} />}
@@ -154,74 +144,17 @@ export function ProfilePage({ tezos, cfg, address, balance }: {
 }
 
 function EditProfile({
-  tezos, cfg, user, onDone, onCancel,
+  tezos, cfg, user, current, onDone, onCancel,
 }: {
   tezos: TezosToolkit;
   cfg: Config;
   user: User;
-  onDone: () => void;
-  onCancel: () => void;
-}) {
-  const [username, setUsername] = useState(user.username);
-  const [bio, setBio] = useState(user.bio);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState('');
-
-  async function save() {
-    if (!username.trim()) { setErr('username cannot be empty'); return; }
-    setBusy(true); setErr('');
-    try {
-      await updateProfile(tezos, cfg, { username, bio });
-      onDone();
-    } catch (e: any) { setErr(e.message ?? String(e)); }
-    finally { setBusy(false); }
-  }
-
-  const fieldStyle: React.CSSProperties = {
-    width: '100%',
-    background: 'var(--bg)',
-    border: '1px solid var(--border)',
-    color: 'inherit',
-    padding: 6,
-    borderRadius: 4,
-    fontFamily: 'inherit',
-    marginBottom: 8,
-  };
-
-  return (
-    <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-      <input
-        style={fieldStyle}
-        placeholder="username"
-        value={username}
-        onChange={e => setUsername(e.target.value)}
-        disabled={busy}
-      />
-      <textarea
-        style={{ ...fieldStyle, minHeight: 60, resize: 'vertical' as const }}
-        placeholder="bio"
-        value={bio}
-        onChange={e => setBio(e.target.value)}
-        disabled={busy}
-      />
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={save} disabled={busy}>{busy ? 'saving…' : 'save'}</button>
-        <button onClick={onCancel} disabled={busy} className="secondary">cancel</button>
-      </div>
-      {err && <div className="error" style={{ marginTop: 8 }}>{err}</div>}
-    </div>
-  );
-}
-
-function EditAvatarProfile({
-  tezos, cfg, current, onDone, onCancel,
-}: {
-  tezos: TezosToolkit;
-  cfg: Config;
   current: ProfileDoc | null;
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const [username, setUsername] = useState<string>(current?.username ?? user.username);
+  const [bio, setBio] = useState<string>(current?.bio ?? user.bio);
   const [avatar, setAvatar] = useState<string | undefined>(current?.avatar);
   const [tagline, setTagline] = useState<string>(current?.tagline ?? '');
   const [location, setLocation] = useState<string>(current?.location ?? '');
@@ -241,9 +174,11 @@ function EditAvatarProfile({
   }
 
   async function save() {
+    if (!username.trim()) { setErr('username cannot be empty'); return; }
     setBusy(true); setErr('');
     try {
-      const doc: ProfileDoc = { version: 1 };
+      const doc: ProfileDoc = { version: 1, username: username.trim() };
+      if (bio.trim()) doc.bio = bio.trim();
       if (avatar) doc.avatar = avatar;
       if (tagline.trim()) doc.tagline = tagline.trim();
       if (location.trim()) doc.location = location.trim();
@@ -294,6 +229,20 @@ function EditAvatarProfile({
           <button className="secondary" onClick={() => setAvatar(undefined)} disabled={busy}>remove</button>
         )}
       </div>
+      <input
+        style={fieldStyle}
+        placeholder="username (required)"
+        value={username}
+        onChange={e => setUsername(e.target.value.slice(0, 30))}
+        disabled={busy}
+      />
+      <textarea
+        style={{ ...fieldStyle, minHeight: 60, resize: 'vertical' as const }}
+        placeholder="bio (markdown ok)"
+        value={bio}
+        onChange={e => setBio(e.target.value.slice(0, 1000))}
+        disabled={busy}
+      />
       <input
         style={fieldStyle}
         placeholder="tagline (≤140 chars)"
