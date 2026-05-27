@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Building2, Users, ChevronUp, ChevronDown, Flag, Shield, MapPin, Link as LinkIcon, X as XIcon } from 'lucide-react';
+import { Building2, Users, ChevronUp, ChevronDown, Flag, Shield, MapPin, Link as LinkIcon, X as XIcon, UserPlus, ShieldOff, Loader2 } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
-import type { Config, SyndicateDetail, ProfileDoc, ProfileLink } from '../api';
+import type { Config, SyndicateDetail, SyndicateMember, ProfileDoc, ProfileLink } from '../api';
 import { getSyndicate, getProfileDoc, postProfile, uploadImage } from '../api';
-import { sendUpdateSyndicateProfile } from '../tezos';
+import {
+  sendUpdateSyndicateProfile, sendAddMember, sendRemoveMember,
+  sendPromoteAdmin, sendDemoteAdmin,
+} from '../tezos';
 import { formatBitDate } from '../utils';
 import { Markdown } from './Markdown';
 import { Avatar } from './Avatar';
@@ -103,17 +106,16 @@ export function SyndicatePage({ tezos, cfg, address }: {
       </div>
 
       <h3 style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 24, marginBottom: 8 }}>members</h3>
-      <div className="bit" style={{ padding: 12 }}>
-        {members.map(m => (
-          <div key={m.address} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: 13 }}>
-            <Link to={`/user/${m.address}`} style={{ color: 'inherit', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              {m.is_admin && <Shield size={12} style={{ color: 'var(--accent-soft)' }} />}
-              <span>{m.username ?? m.address.slice(0, 12) + '…'}</span>
-            </Link>
-            <span className="muted" style={{ fontSize: 11, fontFamily: 'var(--font-mono)' }}>{m.address.slice(0, 12)}…</span>
-          </div>
-        ))}
-      </div>
+      <MemberList
+        tezos={tezos}
+        cfg={cfg}
+        sid={s.sid}
+        members={members}
+        isAdmin={!!isAdmin}
+        callerAddress={address}
+        adminCount={s.admin_count}
+        onChange={() => setTimeout(reload, 4000)}
+      />
 
       <h3 style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 24, marginBottom: 8 }}>
         bits ({bits.length})
@@ -143,6 +145,131 @@ export function SyndicatePage({ tezos, cfg, address }: {
           </div>
         </Link>
       ))}
+    </div>
+  );
+}
+
+function MemberList({
+  tezos, cfg, sid, members, isAdmin, callerAddress, adminCount, onChange,
+}: {
+  tezos: TezosToolkit | null;
+  cfg: Config;
+  sid: string;
+  members: SyndicateMember[];
+  isAdmin: boolean;
+  callerAddress: string | null;
+  adminCount: number;
+  onChange: () => void;
+}) {
+  const [busyOn, setBusyOn] = useState<string | null>(null);
+  const [status, setStatus] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [newAddr, setNewAddr] = useState('');
+  const [err, setErr] = useState('');
+
+  async function withBusy(key: string, fn: () => Promise<any>) {
+    if (!tezos) return;
+    setErr('');
+    setBusyOn(key);
+    setStatus('preparing…');
+    try {
+      setStatus('signing transaction…');
+      const op = await fn();
+      setStatus(`in mempool (${op.hash.slice(0, 10)}…)`);
+      await op.confirmation();
+      setStatus('waiting for indexer…');
+      onChange();
+      setTimeout(() => setStatus(''), 4000);
+    } catch (e: any) {
+      setErr(e.message ?? String(e));
+      setStatus('');
+    } finally {
+      setBusyOn(null);
+    }
+  }
+
+  async function addMember() {
+    if (!newAddr.trim().startsWith('tz')) { setErr('address must start with tz1/tz2/tz3'); return; }
+    await withBusy(`add:${newAddr}`, () => sendAddMember(tezos!, cfg, sid, newAddr.trim()));
+    setNewAddr('');
+    setAdding(false);
+  }
+
+  return (
+    <div className="bit" style={{ padding: 12 }}>
+      {members.map(m => {
+        const isLastAdmin = m.is_admin && adminCount === 1;
+        const isSelf = m.address === callerAddress;
+        return (
+          <div key={m.address} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', fontSize: 13, borderBottom: '1px solid var(--border)' }}>
+            <Link to={`/user/${m.address}`} style={{ color: 'inherit', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1 }}>
+              {m.is_admin && <Shield size={12} style={{ color: 'var(--accent-soft)', flexShrink: 0 }} />}
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.username ?? m.address.slice(0, 12) + '…'}</span>
+            </Link>
+            <span className="muted hide-mobile" style={{ fontSize: 11, fontFamily: 'var(--font-mono)', marginRight: 8 }}>{m.address.slice(0, 12)}…</span>
+            {isAdmin && (
+              <div style={{ display: 'flex', gap: 4 }}>
+                {m.is_admin ? (
+                  <button
+                    className="secondary icon-only"
+                    onClick={() => withBusy(`demote:${m.address}`, () => sendDemoteAdmin(tezos!, cfg, sid, m.address))}
+                    disabled={busyOn !== null || isLastAdmin}
+                    title={isLastAdmin ? 'cannot demote the only admin' : 'demote to member'}
+                  >
+                    {busyOn === `demote:${m.address}` ? <Loader2 size={12} className="spinner" /> : <ShieldOff size={12} />}
+                  </button>
+                ) : (
+                  <button
+                    className="secondary icon-only"
+                    onClick={() => withBusy(`promote:${m.address}`, () => sendPromoteAdmin(tezos!, cfg, sid, m.address))}
+                    disabled={busyOn !== null}
+                    title="promote to admin"
+                  >
+                    {busyOn === `promote:${m.address}` ? <Loader2 size={12} className="spinner" /> : <Shield size={12} />}
+                  </button>
+                )}
+                <button
+                  className="secondary icon-only"
+                  onClick={() => withBusy(`remove:${m.address}`, () => sendRemoveMember(tezos!, cfg, sid, m.address))}
+                  disabled={busyOn !== null || isLastAdmin || isSelf}
+                  title={isLastAdmin ? 'cannot remove the only admin' : isSelf ? 'cannot remove yourself' : 'remove member'}
+                >
+                  {busyOn === `remove:${m.address}` ? <Loader2 size={12} className="spinner" /> : <XIcon size={12} />}
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {isAdmin && (
+        <div style={{ marginTop: 10 }}>
+          {adding ? (
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input
+                style={{
+                  flex: 1, background: 'var(--bg)', border: '1px solid var(--border)',
+                  color: 'inherit', padding: 6, borderRadius: 4, fontFamily: 'var(--font-mono)', fontSize: 12,
+                }}
+                placeholder="tz1..."
+                value={newAddr}
+                onChange={e => setNewAddr(e.target.value)}
+                disabled={busyOn !== null}
+                autoFocus
+              />
+              <button onClick={addMember} disabled={busyOn !== null || !newAddr.trim()}>
+                {busyOn?.startsWith('add:') ? <Loader2 size={14} className="spinner" /> : 'add'}
+              </button>
+              <button className="secondary" onClick={() => { setAdding(false); setNewAddr(''); setErr(''); }} disabled={busyOn !== null}>cancel</button>
+            </div>
+          ) : (
+            <button className="secondary" onClick={() => setAdding(true)} disabled={busyOn !== null}>
+              <UserPlus size={12} /> add member
+            </button>
+          )}
+        </div>
+      )}
+      {status && <div className="muted" style={{ marginTop: 8, fontSize: 12, fontStyle: 'italic' }}>{status}</div>}
+      {err && <div className="error" style={{ marginTop: 8 }}>{err}</div>}
     </div>
   );
 }
