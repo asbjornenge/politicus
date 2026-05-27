@@ -6,6 +6,7 @@ const {
   TZKT_API = 'https://api.shadownet.tzkt.io',
   IDENTITY_REGISTRY,
   BIT_REGISTRY,
+  BIT_DATA_STORE,
   PETITION_REGISTRY,
   MODERATION_REGISTRY,
   SYNDICATE_REGISTRY,
@@ -375,7 +376,8 @@ async function main() {
   await backfillPackedKeys();
 
   const id = await getBigmapPtrs(IDENTITY_REGISTRY);
-  const br = await getBigmapPtrs(BIT_REGISTRY);
+  const bitStore = BIT_DATA_STORE ?? BIT_REGISTRY;
+  const br = await getBigmapPtrs(bitStore);
   const pr = await getBigmapPtrs(PETITION_REGISTRY);
   const mr = await getBigmapPtrs(MODERATION_REGISTRY);
   const sr = SYNDICATE_REGISTRY ? await getBigmapPtrs(SYNDICATE_REGISTRY) : {};

@@ -7,6 +7,7 @@ export type Bit = {
   content_type: string | null;
   parent: string | null;
   syndicate: string | null;
+  syndicate_name: string | null;
   creation_time: string;
   yay: number;
   nay: number;

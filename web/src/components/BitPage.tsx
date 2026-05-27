@@ -124,7 +124,7 @@ export function BitPage({ tezos, cfg, address, balance, kernelVars, requestWalle
     finally { setActiveOp(null); }
   }
 
-  async function handleReply(text: string) {
+  async function handleReply(text: string, _syndicate: string | null) {
     if (!bid || !data) return;
     if (!tezos || !address) { requestWallet(); return; }
     const id = crypto.randomUUID();

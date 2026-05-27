@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronUp, ChevronDown, Flag, Loader2, X as XIcon } from 'lucide-react';
+import { ChevronUp, ChevronDown, Flag, Loader2, X as XIcon, Building2 } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
-import { listBits, postContent } from '../api';
-import type { Bit, Config } from '../api';
+import { listBits, postContent, listMySyndicates } from '../api';
+import type { Bit, Config, Syndicate } from '../api';
 import {
   sendVoteBit, sendCreateBit, sendCreateModContentAddPetition,
   ensureRegistered,
@@ -39,6 +39,12 @@ export function Feed({ tezos, cfg, address, balance, kernelVars, requestWallet }
   const [notice, setNotice] = useState('');
   const [pending, setPending] = useState<PendingItem<Bit>[]>([]);
   const [pendingVotes, setPendingVotes] = useState<Record<string, PendingVote>>({});
+  const [mySyndicates, setMySyndicates] = useState<Array<Syndicate & { is_admin: boolean }>>([]);
+
+  useEffect(() => {
+    if (!address) { setMySyndicates([]); return; }
+    listMySyndicates(address).then(setMySyndicates).catch(() => {});
+  }, [address]);
 
   function bumpPendingVote(bid: string, dir: 'up' | 'down') {
     setPendingVotes(prev => {
@@ -95,7 +101,7 @@ export function Feed({ tezos, cfg, address, balance, kernelVars, requestWallet }
     return () => { cancelled = true; clearInterval(handle); };
   }, [isWatching]);
 
-  async function handleSubmit(text: string) {
+  async function handleSubmit(text: string, syndicate: string | null) {
     if (!tezos || !address) { requestWallet(); return; }
     const id = crypto.randomUUID();
     setPending(prev => [{ id, text, status: 'preparing…' }, ...prev]);
@@ -109,7 +115,7 @@ export function Feed({ tezos, cfg, address, balance, kernelVars, requestWallet }
       const contentHash = await postContent(text);
 
       updatePending(id, { status: 'signing transaction…' });
-      const op = await sendCreateBit(tezos, cfg, contentHash);
+      const op = await sendCreateBit(tezos, cfg, contentHash, null, syndicate);
 
       updatePending(id, { status: `in mempool (${op.hash.slice(0, 10)}…), waiting for confirmation…` });
       await op.confirmation();
@@ -180,6 +186,7 @@ export function Feed({ tezos, cfg, address, balance, kernelVars, requestWallet }
           address={address}
           costMutez={kernelVars.BitCost ?? null}
           balance={balance}
+          syndicates={mySyndicates}
         />
       ) : (
         <div className="compose" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -196,9 +203,29 @@ export function Feed({ tezos, cfg, address, balance, kernelVars, requestWallet }
       {bits.map(b => (
         <div key={b.bid} className="bit">
           <div className="meta">
-            <Link to={`/user/${b.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
-              {b.creator_username ?? b.creator.slice(0, 12) + '…'}
-            </Link>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              {b.syndicate ? (
+                <>
+                  <Link
+                    to={`/syndicate/${b.syndicate}`}
+                    className="creator"
+                    style={{ color: 'inherit', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                  >
+                    <Building2 size={13} /> {b.syndicate_name ?? 'syndicate'}
+                  </Link>
+                  <span className="muted" style={{ fontSize: 11 }}>
+                    by{' '}
+                    <Link to={`/user/${b.creator}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                      {b.creator_username ?? b.creator.slice(0, 12) + '…'}
+                    </Link>
+                  </span>
+                </>
+              ) : (
+                <Link to={`/user/${b.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
+                  {b.creator_username ?? b.creator.slice(0, 12) + '…'}
+                </Link>
+              )}
+            </span>
             <span title={new Date(b.creation_time).toLocaleString()}>{formatBitDate(b.creation_time)}</span>
           </div>
           <div className="content">

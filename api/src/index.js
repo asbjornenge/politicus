@@ -229,11 +229,13 @@ app.get('/api/bits', async c => {
   const rows = before
     ? await sql`
         SELECT b.*, c.body, c.content_type, u.username, u.bio,
+          s.name AS syndicate_name,
           v.direction AS my_vote, v.votes AS my_votes,
           false AS content_moderated, false AS creator_moderated
         FROM bits b
         LEFT JOIN content c ON c.hash = b.content_hash
         LEFT JOIN users u ON u.address = b.creator
+        LEFT JOIN syndicates s ON s.sid = b.syndicate
         LEFT JOIN votes v ON v.bid = b.bid AND v.voter = ${viewer}
         WHERE b.creation_time < ${before}
           AND NOT EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash)
@@ -243,11 +245,13 @@ app.get('/api/bits', async c => {
       `
     : await sql`
         SELECT b.*, c.body, c.content_type, u.username, u.bio,
+          s.name AS syndicate_name,
           v.direction AS my_vote, v.votes AS my_votes,
           false AS content_moderated, false AS creator_moderated
         FROM bits b
         LEFT JOIN content c ON c.hash = b.content_hash
         LEFT JOIN users u ON u.address = b.creator
+        LEFT JOIN syndicates s ON s.sid = b.syndicate
         LEFT JOIN votes v ON v.bid = b.bid AND v.voter = ${viewer}
         WHERE NOT EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash)
           AND NOT EXISTS (SELECT 1 FROM moderated_users mu WHERE mu.address = b.creator)
@@ -262,12 +266,14 @@ app.get('/api/bits/:bid', async c => {
   const viewer = c.req.query('viewer') ?? '';
   const rows = await sql`
     SELECT b.*, c.body, c.content_type, u.username, u.bio,
+      s.name AS syndicate_name,
       v.direction AS my_vote, v.votes AS my_votes,
       EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash) AS content_moderated,
       EXISTS (SELECT 1 FROM moderated_users mu WHERE mu.address = b.creator) AS creator_moderated
     FROM bits b
     LEFT JOIN content c ON c.hash = b.content_hash
     LEFT JOIN users u ON u.address = b.creator
+    LEFT JOIN syndicates s ON s.sid = b.syndicate
     LEFT JOIN votes v ON v.bid = b.bid AND v.voter = ${viewer}
     WHERE b.bid = ${bid}
   `;
@@ -294,12 +300,14 @@ app.get('/api/bits/:bid', async c => {
 
   const replies = await sql`
     SELECT b.*, c.body, c.content_type, u.username, u.bio,
+      s.name AS syndicate_name,
       v.direction AS my_vote, v.votes AS my_votes,
       EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash) AS content_moderated,
       EXISTS (SELECT 1 FROM moderated_users mu WHERE mu.address = b.creator) AS creator_moderated
     FROM bits b
     LEFT JOIN content c ON c.hash = b.content_hash
     LEFT JOIN users u ON u.address = b.creator
+    LEFT JOIN syndicates s ON s.sid = b.syndicate
     LEFT JOIN votes v ON v.bid = b.bid AND v.voter = ${viewer}
     WHERE b.parent = ${bid}
     ORDER BY b.creation_time ASC
@@ -331,11 +339,13 @@ app.get('/api/users/:address', async c => {
   } catch { /* ignore */ }
   const bitRows = await sql`
     SELECT b.*, c.body, c.content_type, u.username, u.bio,
+      s.name AS syndicate_name,
       EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash) AS content_moderated,
       EXISTS (SELECT 1 FROM moderated_users mu WHERE mu.address = b.creator) AS creator_moderated
     FROM bits b
     LEFT JOIN content c ON c.hash = b.content_hash
     LEFT JOIN users u ON u.address = b.creator
+    LEFT JOIN syndicates s ON s.sid = b.syndicate
     WHERE b.creator = ${address}
     ORDER BY b.creation_time DESC
     LIMIT 50
@@ -414,12 +424,14 @@ app.get('/api/syndicates/:sid', async c => {
   `;
   const bits = await sql`
     SELECT b.*, c.body, c.content_type, u.username, u.bio,
+      s.name AS syndicate_name,
       v.direction AS my_vote, v.votes AS my_votes,
       EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash) AS content_moderated,
       EXISTS (SELECT 1 FROM moderated_users mu WHERE mu.address = b.creator) AS creator_moderated
     FROM bits b
     LEFT JOIN content c ON c.hash = b.content_hash
     LEFT JOIN users u ON u.address = b.creator
+    LEFT JOIN syndicates s ON s.sid = b.syndicate
     LEFT JOIN votes v ON v.bid = b.bid AND v.voter = ${viewer}
     WHERE b.syndicate = ${sid}
     ORDER BY b.creation_time DESC
@@ -505,6 +517,7 @@ function formatBit(row) {
     content_type: suppressed ? null : (row.content_type ?? null),
     parent: row.parent,
     syndicate: row.syndicate,
+    syndicate_name: row.syndicate_name ?? null,
     creation_time: row.creation_time,
     yay: Number(row.yay),
     nay: Number(row.nay),

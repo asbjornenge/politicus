@@ -13,6 +13,8 @@
     "originate:treasury": "node scripts/originate-treasury.mjs",
     "originate:identity": "node scripts/originate-identity.mjs",
     "originate:bit": "node scripts/originate-bit.mjs",
+    "originate:bit-store": "node scripts/originate-bit-store.mjs",
+    "originate:bit-logic": "node scripts/originate-bit-logic.mjs",
     "originate:moderation": "node scripts/originate-moderation.mjs",
     "originate:petition": "node scripts/originate-petition.mjs",
     "originate:syndicate": "node scripts/originate-syndicate.mjs",

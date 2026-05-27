@@ -73,15 +73,18 @@ export function Compose({
   address,
   costMutez,
   balance,
+  syndicates,
 }: {
-  onSubmit: (text: string) => void | Promise<void>;
+  onSubmit: (text: string, syndicate: string | null) => void | Promise<void>;
   parent?: string;
   onCancel?: () => void;
   placeholder?: string;
   address?: string | null;
   costMutez?: string | null;
   balance?: number | null;
+  syndicates?: Array<{ sid: string; name: string }>;
 }) {
+  const [postAs, setPostAs] = useState<string | null>(null);
   const costTez = costMutez ? Number(costMutez) / 1_000_000 : null;
   const insufficient = costTez !== null && balance !== null && balance !== undefined && balance < costTez;
   const submitLabel = parent ? 'reply' : 'post';
@@ -174,7 +177,7 @@ export function Compose({
     setSubmitting(true);
     setFullscreen(false);
     try {
-      await onSubmit(t);
+      await onSubmit(t, postAs);
     } finally {
       setSubmitting(false);
     }
@@ -300,6 +303,34 @@ export function Compose({
     );
   }
 
+  function PostAsSelect() {
+    if (!syndicates || syndicates.length === 0 || parent) return null;
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+        <span>post as</span>
+        <select
+          value={postAs ?? ''}
+          onChange={e => setPostAs(e.target.value || null)}
+          disabled={submitting}
+          style={{
+            background: 'var(--bg)',
+            border: '1px solid var(--border)',
+            color: 'inherit',
+            padding: '4px 6px',
+            borderRadius: 4,
+            font: 'inherit',
+            fontSize: 12,
+          }}
+        >
+          <option value="">yourself</option>
+          {syndicates.map(s => (
+            <option key={s.sid} value={s.sid}>{s.name}</option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
   if (!fullscreen) {
     return (
       <div className="compose">
@@ -308,6 +339,7 @@ export function Compose({
             <DraftsButton />
           </div>
         )}
+        <PostAsSelect />
         <textarea
           ref={taRef}
           placeholder={placeholder ?? (parent ? 'reply...' : 'post a bit...')}
@@ -343,10 +375,11 @@ export function Compose({
     <div className="editor-overlay" role="dialog" aria-modal="true">
       <div className={`editor-modal${mobilePreview ? ' preview-on' : ''}`}>
         <div className="editor-head">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <span className="editor-title">{parent ? 'reply' : 'new bit'}</span>
             <DraftsButton />
             <NewButton />
+            <PostAsSelect />
           </div>
           <button className="secondary icon-only" onClick={() => setFullscreen(false)} title="exit fullscreen">
             <Minimize2 size={14} />
