@@ -117,12 +117,15 @@ app.post('/api/content', async c => {
 function validateProfile(p) {
   if (typeof p !== 'object' || p === null) return 'must be object';
   if (p.version !== 1) return 'version must be 1';
-  const allowed = new Set(['version', 'username', 'bio', 'avatar', 'links', 'location', 'tagline']);
+  const allowed = new Set(['version', 'username', 'name', 'bio', 'avatar', 'links', 'location', 'tagline']);
   for (const k of Object.keys(p)) {
     if (!allowed.has(k)) return `unknown field "${k}"`;
   }
   if (p.username !== undefined) {
     if (typeof p.username !== 'string' || p.username.length === 0 || p.username.length > 30) return 'username must be string 1..30';
+  }
+  if (p.name !== undefined) {
+    if (typeof p.name !== 'string' || p.name.length === 0 || p.name.length > 60) return 'name must be string 1..60';
   }
   if (p.bio !== undefined) {
     if (typeof p.bio !== 'string' || p.bio.length > 1000) return 'bio must be string ≤1000';

@@ -124,6 +124,7 @@ export type ProfileLink = { name: string; url: string };
 export type ProfileDoc = {
   version: 1;
   username?: string;
+  name?: string;
   bio?: string;
   avatar?: string;
   tagline?: string;
