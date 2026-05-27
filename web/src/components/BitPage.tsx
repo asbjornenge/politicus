@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronUp, ChevronDown, Flag, MessageCircle, Loader2, X as XIcon } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
-import type { Config, BitDetail } from '../api';
-import { getBit, postContent } from '../api';
+import type { Config, BitDetail, Syndicate } from '../api';
+import { getBit, postContent, listMySyndicates } from '../api';
 import {
   sendVoteBit, sendCreateBit, sendCreateModContentAddPetition,
   ensureRegistered,
@@ -11,7 +11,8 @@ import {
 import { Compose } from './Compose';
 import { PendingPost, type PendingItem } from './PendingPost';
 import { Markdown } from './Markdown';
-import { formatBitDate, formatTez, pendingVoteTotal, quadraticCostTez } from '../utils';
+import { BitMeta } from './BitMeta';
+import { formatTez, pendingVoteTotal, quadraticCostTez } from '../utils';
 
 
 export function BitPage({ tezos, cfg, address, balance, kernelVars, requestWallet }: {
@@ -45,6 +46,12 @@ export function BitPage({ tezos, cfg, address, balance, kernelVars, requestWalle
   }
   const [showThread, setShowThread] = useState(true);
   const [pendingReplies, setPendingReplies] = useState<PendingItem<any>[]>([]);
+  const [mySyndicates, setMySyndicates] = useState<Array<Syndicate & { is_admin: boolean }>>([]);
+
+  useEffect(() => {
+    if (!address) { setMySyndicates([]); return; }
+    listMySyndicates(address).then(setMySyndicates).catch(() => {});
+  }, [address]);
 
   function updatePending(id: string, patch: Partial<PendingItem<any>>) {
     setPendingReplies(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p));
@@ -124,7 +131,7 @@ export function BitPage({ tezos, cfg, address, balance, kernelVars, requestWalle
     finally { setActiveOp(null); }
   }
 
-  async function handleReply(text: string, _syndicate: string | null) {
+  async function handleReply(text: string, syndicate: string | null) {
     if (!bid || !data) return;
     if (!tezos || !address) { requestWallet(); return; }
     const id = crypto.randomUUID();
@@ -139,7 +146,7 @@ export function BitPage({ tezos, cfg, address, balance, kernelVars, requestWalle
       const contentHash = await postContent(text);
 
       updatePending(id, { status: 'signing transaction…' });
-      const op = await sendCreateBit(tezos, cfg, contentHash, bid);
+      const op = await sendCreateBit(tezos, cfg, contentHash, bid, syndicate);
 
       updatePending(id, { status: `in mempool (${op.hash.slice(0, 10)}…), waiting for confirmation…` });
       await op.confirmation();
@@ -174,12 +181,7 @@ export function BitPage({ tezos, cfg, address, balance, kernelVars, requestWalle
           </div>
           {showThread && ancestors.map(a => (
             <div key={a.bid} className="bit" style={{ borderLeft: '3px solid var(--border-strong)', opacity: 0.85 }}>
-              <div className="meta">
-                <Link to={`/user/${a.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
-                  {a.creator_username ?? a.creator.slice(0, 12) + '…'}
-                </Link>
-                <span title={new Date(a.creation_time).toLocaleString()}>{formatBitDate(a.creation_time)}</span>
-              </div>
+              <BitMeta bit={a} />
               <div className="content">
                 {a.content_moderated ? (
                   <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Flag size={14} /> moderated</span>
@@ -199,12 +201,7 @@ export function BitPage({ tezos, cfg, address, balance, kernelVars, requestWalle
         </div>
       )}
       <div className="bit" style={{ borderLeft: '3px solid var(--accent)' }}>
-        <div className="meta">
-          <Link to={`/user/${b.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
-            {b.creator_username ?? b.creator.slice(0, 16) + '…'}
-          </Link>
-          <span title={new Date(b.creation_time).toLocaleString()}>{formatBitDate(b.creation_time)}</span>
-        </div>
+        <BitMeta bit={b} />
         <div className="content" style={{ fontSize: 16 }}>
           {b.content_moderated ? (
             <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Flag size={14} /> content moderated — bytes withheld by indexer</span>
@@ -304,6 +301,7 @@ export function BitPage({ tezos, cfg, address, balance, kernelVars, requestWalle
             address={address}
             costMutez={kernelVars.BitCost ?? null}
             balance={balance}
+            syndicates={mySyndicates}
           />
         </div>
       )}
@@ -322,12 +320,7 @@ export function BitPage({ tezos, cfg, address, balance, kernelVars, requestWalle
           ))}
           {data.replies.map(r => (
             <div key={r.bid} className="bit">
-              <div className="meta">
-                <Link to={`/user/${r.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
-                  {r.creator_username ?? r.creator.slice(0, 12) + '…'}
-                </Link>
-                <span title={new Date(r.creation_time).toLocaleString()}>{formatBitDate(r.creation_time)}</span>
-              </div>
+              <BitMeta bit={r} />
               <div className="content">
                 {r.content_moderated ? (
                   <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Flag size={14} /> moderated</span>

@@ -11,7 +11,8 @@ import {
 import { Compose } from './Compose';
 import { PendingPost, type PendingItem } from './PendingPost';
 import { Markdown } from './Markdown';
-import { formatBitDate, formatTez, pendingVoteTotal, quadraticCostTez } from '../utils';
+import { BitMeta } from './BitMeta';
+import { formatTez, pendingVoteTotal, quadraticCostTez } from '../utils';
 
 type PendingVote = { direction: 'up' | 'down'; count: number };
 
@@ -202,32 +203,7 @@ export function Feed({ tezos, cfg, address, balance, kernelVars, requestWallet }
       {bits.length === 0 && !loading && pending.length === 0 && <p className="muted">no bits yet. post something.</p>}
       {bits.map(b => (
         <div key={b.bid} className="bit">
-          <div className="meta">
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              {b.syndicate ? (
-                <>
-                  <Link
-                    to={`/syndicate/${b.syndicate}`}
-                    className="creator"
-                    style={{ color: 'inherit', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                  >
-                    <Building2 size={13} /> {b.syndicate_name ?? 'syndicate'}
-                  </Link>
-                  <span className="muted" style={{ fontSize: 11 }}>
-                    by{' '}
-                    <Link to={`/user/${b.creator}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                      {b.creator_username ?? b.creator.slice(0, 12) + '…'}
-                    </Link>
-                  </span>
-                </>
-              ) : (
-                <Link to={`/user/${b.creator}`} className="creator" style={{ color: 'inherit', textDecoration: 'none' }}>
-                  {b.creator_username ?? b.creator.slice(0, 12) + '…'}
-                </Link>
-              )}
-            </span>
-            <span title={new Date(b.creation_time).toLocaleString()}>{formatBitDate(b.creation_time)}</span>
-          </div>
+          <BitMeta bit={b} />
           <div className="content">
             {b.content_moderated ? (
               <span className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>

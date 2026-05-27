@@ -304,7 +304,7 @@ export function Compose({
   }
 
   function PostAsSelect() {
-    if (!syndicates || syndicates.length === 0 || parent) return null;
+    if (!syndicates || syndicates.length === 0) return null;
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
         <span>post as</span>
