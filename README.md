@@ -1,5 +1,12 @@
 # Curious Politicus (DRAFT)
 
+> **Status:** prototype on **Tezlink Shadownet** (Tezos testnet). A live test instance runs at
+> [politicus.asbjornenge.com](https://politicus.asbjornenge.com) — bring your own wallet
+> or generate one in-browser, claim test tez from the in-app faucet link, and explore.
+> Accounts and on-chain state on Shadownet can be reset at any time; treat the instance
+> as a preview, not a record. Mainnet launch is planned for when Michelson on Tezos X
+> ships on mainnet.
+
 Curious Politicus (CP or Politicus) is a social network and publishing platform.
 
 *In more detail, you can say it is an attempt to create a proper incentive structure for a self-governing social media network that will lead to positive outcomes for humanity.*
@@ -343,6 +350,69 @@ The off-chain storage model (see Bit section) lets compliant indexers refuse to 
 ### How do we handle topics / hashtags
 
 CP itself does not parse, link or otherwize deal with topics or hashtags. That is a job for indexers.
+
+## Architecture (as built)
+
+The reference implementation has eight smart contracts on Tezlink Shadownet plus
+an off-chain indexer, an API gateway, and a React web frontend.
+
+### Upgradable contracts, durable data
+
+Variables, BitRegistry and PetitionRegistry each run a **Logic + DataStore**
+split:
+
+- The DataStore holds the bigmaps (`bits`, `votes`, `petitions`, kernel
+  `values`, …) and exposes admin-only atomic state transitions.
+- The Logic contract holds the validation rules (fees, registration, syndicate
+  membership, quorum/majority computation, action dispatch). Users sign their
+  transactions against the Logic.
+- The DataStore's `admin` pointer is whichever Logic contract is currently
+  authorised to write. Logic upgrades happen by flipping this pointer.
+
+Each Logic contract carries a `governance` pointer and a
+`governance_migrate(new_logic)` entrypoint. PetitionLogic understands a
+`Migrate_logic(target, new_logic)` action variant; when a community petition
+of that kind passes, PetitionLogic calls `target.governance_migrate(new_logic)`
+and storage is now under the new Logic. Bits, votes, petitions, syndicates,
+profiles and kernel variables all carry over — only the rules above them
+change. The same petition mechanism that tunes kernel variables also chooses
+the kernel's own implementation.
+
+Concretely the chain looks like this:
+
+| Concept              | Logic (`signer-facing`)    | DataStore (`canonical pointer`)        |
+| -------------------- | -------------------------- | --------------------------------------- |
+| Kernel variables     | `VariablesLogic`           | `VariablesDataStore` (`values`)         |
+| Bits + Bit votes     | `BitRegistryLogic`         | `BitDataStore` (`bits`, `votes`)        |
+| Petitions + votes    | `PetitionLogic`            | `PetitionDataStore` (`petitions`, …)    |
+
+`IdentityRegistry`, `SyndicateRegistry`, `ProfileRegistry`, `ModerationRegistry`
+and `Treasury` are single-contract (`IdentityRegistry` and `Treasury` were never
+re-deployed during the storage/logic refactor, so their data has been
+preserved). The off-chain API resolves the current Logic for each split
+contract by reading the DataStore's `admin` field, cached for ~60 seconds; the
+frontend only knows about the canonical DataStore addresses, so a successful
+`Migrate_logic` petition takes effect transparently without a config push.
+
+### Syndicates
+
+A **syndicate** is a multi-author group identity — a shared masthead like a
+newspaper, magazine, or advocacy organisation. The `SyndicateRegistry`
+contract holds the per-syndicate membership (admins + members), and the
+`BitRegistryLogic.create_bit` entrypoint gates publishing under a syndicate by
+calling the registry's `is_member` view. Membership is **closed**: only admins
+can add other members or promote new admins. The contract enforces that a
+syndicate always has at least one admin.
+
+### Profiles
+
+`ProfileRegistry` maps opaque keys (`Bytes.pack(address)` for users, `sid` for
+syndicates) to IPFS content hashes pointing at small profile JSON documents
+(`{ version: 1, username, name, bio, avatar (CID), tagline, location, links }`).
+The API validates the JSON before caching it. This pushes mutable identity
+data off-chain while keeping it content-addressed and decentralised. The
+indexer also writes the JSON's `username`/`bio` (or `name`/`bio`) back into the
+`users` / `syndicates` tables so feed queries don't need an extra fetch.
 
 ## Notes
 

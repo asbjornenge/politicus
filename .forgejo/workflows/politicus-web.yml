@@ -1,0 +1,37 @@
+name: Deploy WEB → politicus
+
+on:
+  push:
+    tags: "politicus-web-*"
+
+env:
+  REGISTRY: registry.asbjornenge.com:5000
+  IMAGE_NAME: politicus-web
+  SWARM_MANAGER: tcp://internal.asbjornenge.com:4243
+
+defaults:
+  run:
+    shell: sh {0}
+
+jobs:
+  build-and-deploy:
+    runs-on: docker
+
+    steps:
+      - name: Checkout
+        run: |
+          apk add --no-cache git
+          git clone --depth 1 --branch ${GITHUB_REF_NAME} ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git .
+
+      - name: Get the version
+        id: get_version
+        run: echo "APP_VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        run: docker buildx create --name multiarch --driver docker-container --use || docker buildx use multiarch
+
+      - name: Build and push WEB image
+        run: docker buildx build --platform linux/amd64,linux/arm64 -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get_version.outputs.APP_VERSION }} --push --output=type=registry,registry.insecure=true web/
+
+      - name: Deploy WEB → politicus
+        run: docker -H ${{ env.SWARM_MANAGER }} service update --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.get_version.outputs.APP_VERSION }} politicus_web --force --detach

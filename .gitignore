@@ -5,5 +5,6 @@ node_modules/
 artifacts/
 .ligo/
 web/dist/
+web/tsconfig.tsbuildinfo
 .mcp.json
 .claude
