@@ -124,6 +124,23 @@ async function applyBigmapUpdate(u, ptrs) {
     }
     if (!value) return;
     const contentHash = decodeContentHash(value.content_hash);
+    // Lazy-fetch content from IPFS gateway if not already cached.
+    if (IPFS_GATEWAY_URL && contentHash) {
+      const cached = await sql`SELECT 1 FROM content WHERE hash = ${contentHash}`;
+      if (cached.length === 0) {
+        try {
+          const r = await fetch(`${IPFS_GATEWAY_URL}/${contentHash}`);
+          if (r.ok) {
+            const buf = Buffer.from(await r.arrayBuffer());
+            await sql`
+              INSERT INTO content (hash, body, content_type)
+              VALUES (${contentHash}, ${buf}, 'text/plain')
+              ON CONFLICT (hash) DO NOTHING
+            `;
+          }
+        } catch { /* ignore — show "not yet uploaded" until next pass */ }
+      }
+    }
     await sql`
       INSERT INTO bits (bid, creator, content_hash, parent, syndicate, creation_time, yay, nay)
       VALUES (
@@ -360,6 +377,31 @@ async function pollPetitionVoteOps() {
   }
 }
 
+async function backfillMissingContent() {
+  if (!IPFS_GATEWAY_URL) return;
+  const rows = await sql`
+    SELECT DISTINCT b.content_hash FROM bits b
+    LEFT JOIN content c ON c.hash = b.content_hash
+    WHERE c.hash IS NULL
+  `;
+  if (rows.length === 0) return;
+  console.log(`Backfilling content cache for ${rows.length} bits from IPFS`);
+  for (const r of rows) {
+    try {
+      const resp = await fetch(`${IPFS_GATEWAY_URL}/${r.content_hash}`);
+      if (!resp.ok) continue;
+      const buf = Buffer.from(await resp.arrayBuffer());
+      await sql`
+        INSERT INTO content (hash, body, content_type)
+        VALUES (${r.content_hash}, ${buf}, 'text/plain')
+        ON CONFLICT (hash) DO NOTHING
+      `;
+    } catch (e) {
+      console.error(`  fetch failed for ${r.content_hash}:`, e.message);
+    }
+  }
+}
+
 async function backfillPackedKeys() {
   const rows = await sql`SELECT address FROM users WHERE packed_key IS NULL`;
   if (rows.length === 0) return;
@@ -382,6 +424,7 @@ async function main() {
   console.log(`  Poll interval:    ${pollMs}ms`);
 
   await backfillPackedKeys();
+  await backfillMissingContent();
 
   const id = await getBigmapPtrs(IDENTITY_REGISTRY);
   const bitStore = BIT_DATA_STORE ?? BIT_REGISTRY;
