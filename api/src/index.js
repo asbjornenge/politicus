@@ -17,6 +17,9 @@ const {
   IPFS_UPLOAD_URL = 'http://localhost:5001',
   IPFS_GATEWAY_URL = 'http://localhost:8080',
   VARIABLES_ADDRESS,
+  VARIABLES_DATA_STORE,
+  BIT_DATA_STORE,
+  PETITION_DATA_STORE,
   TREASURY_ADDRESS,
   IDENTITY_REGISTRY,
   BIT_REGISTRY,
@@ -58,9 +61,10 @@ app.get('/health', c => c.json({ ok: true }));
 const TZKT_API_URL = process.env.TZKT_API ?? 'https://api.shadownet.tzkt.io';
 
 app.get('/api/kernel-vars', async c => {
-  if (!VARIABLES_ADDRESS) return c.json({ values: {} });
+  const valuesContract = VARIABLES_DATA_STORE || VARIABLES_ADDRESS;
+  if (!valuesContract) return c.json({ values: {} });
   try {
-    const r = await fetch(`${TZKT_API_URL}/v1/contracts/${VARIABLES_ADDRESS}/bigmaps/values/keys?active=true&limit=200`);
+    const r = await fetch(`${TZKT_API_URL}/v1/contracts/${valuesContract}/bigmaps/values/keys?active=true&limit=200`);
     if (!r.ok) return c.json({ error: 'tzkt unavailable' }, 502);
     const arr = await r.json();
     const values = {};
@@ -73,21 +77,47 @@ app.get('/api/kernel-vars', async c => {
   }
 });
 
-app.get('/api/config', c => c.json({
-  rpcUrl: RPC_URL,
-  faucetUrl: FAUCET_URL || null,
-  ipfsGateway: IPFS_GATEWAY_URL,
-  contracts: {
-    Variables: VARIABLES_ADDRESS,
-    Treasury: TREASURY_ADDRESS,
-    IdentityRegistry: IDENTITY_REGISTRY,
-    BitRegistry: BIT_REGISTRY,
-    PetitionRegistry: PETITION_REGISTRY,
-    ModerationRegistry: MODERATION_REGISTRY,
-    SyndicateRegistry: SYNDICATE_REGISTRY || undefined,
-    ProfileRegistry: PROFILE_REGISTRY || undefined,
-  },
-}));
+const RESOLVE_CACHE = new Map();
+const RESOLVE_TTL_MS = 60_000;
+
+async function resolveLogicAdmin(dataStore) {
+  if (!dataStore) return null;
+  const hit = RESOLVE_CACHE.get(dataStore);
+  if (hit && Date.now() - hit.at < RESOLVE_TTL_MS) return hit.value;
+  try {
+    const r = await fetch(`${TZKT_API_URL}/v1/contracts/${dataStore}/storage`);
+    if (!r.ok) return hit?.value ?? null;
+    const s = await r.json();
+    const admin = s?.admin ?? null;
+    if (admin) RESOLVE_CACHE.set(dataStore, { at: Date.now(), value: admin });
+    return admin;
+  } catch {
+    return hit?.value ?? null;
+  }
+}
+
+app.get('/api/config', async c => {
+  const [variables, bitRegistry, petitionRegistry] = await Promise.all([
+    VARIABLES_DATA_STORE ? resolveLogicAdmin(VARIABLES_DATA_STORE) : VARIABLES_ADDRESS,
+    BIT_DATA_STORE ? resolveLogicAdmin(BIT_DATA_STORE) : BIT_REGISTRY,
+    PETITION_DATA_STORE ? resolveLogicAdmin(PETITION_DATA_STORE) : PETITION_REGISTRY,
+  ]);
+  return c.json({
+    rpcUrl: RPC_URL,
+    faucetUrl: FAUCET_URL || null,
+    ipfsGateway: IPFS_GATEWAY_URL,
+    contracts: {
+      Variables: variables ?? VARIABLES_ADDRESS,
+      Treasury: TREASURY_ADDRESS,
+      IdentityRegistry: IDENTITY_REGISTRY,
+      BitRegistry: bitRegistry ?? BIT_REGISTRY,
+      PetitionRegistry: petitionRegistry ?? PETITION_REGISTRY,
+      ModerationRegistry: MODERATION_REGISTRY,
+      SyndicateRegistry: SYNDICATE_REGISTRY || undefined,
+      ProfileRegistry: PROFILE_REGISTRY || undefined,
+    },
+  });
+});
 
 // --- Content ---
 

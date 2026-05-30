@@ -159,6 +159,20 @@ export async function sendCreateModContentAddPetition(
     .send({ amount: Number(cost), mutez: true });
 }
 
+export async function sendCreateMigrateLogicPetition(
+  tezos: TezosToolkit,
+  cfg: Config,
+  targetLogic: string,
+  newLogic: string,
+) {
+  const cost = await readVariable(tezos, cfg, 'PetitionMigrateLogicCost');
+  if (cost == null) throw new Error('PetitionMigrateLogicCost not set');
+  const c = await tezos.contract.at(cfg.contracts.PetitionRegistry);
+  return await c.methodsObject
+    .create_petition({ migrate_logic: { 0: targetLogic, 1: newLogic } })
+    .send({ amount: Number(cost), mutez: true });
+}
+
 export async function sendVotePetition(
   tezos: TezosToolkit,
   cfg: Config,

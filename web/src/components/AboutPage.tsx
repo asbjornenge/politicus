@@ -50,6 +50,28 @@ the platform creator retains direct write access, but can only ratchet the
 threshold *down*, never up. Once enough users have joined, this power
 sunsets automatically.
 
+### Upgradable contracts, durable data
+
+Each major contract is split into a **DataStore** (the bigmaps holding
+bits, votes, petitions, syndicates, profiles, moderation entries, kernel
+variables) and a **Logic** contract (validation, fees, dispatch). Logic
+contracts can be replaced via a *Migrate logic* petition — when it passes,
+the new Logic takes over write authority on the DataStore and the
+historical record carries through unbroken. Storage is sacred; the rules
+above it can evolve as the community decides. The same petition mechanism
+that tunes kernel variables also chooses the kernel's own implementation.
+
+### Syndicates
+
+Members can group up under a **syndicate** — a shared masthead like a
+newspaper, magazine, or organization. Anyone can register a syndicate
+(costs \`SyndicateCreationCost\` mutez); admins invite other members and
+appoint additional admins. Bits posted under a syndicate are gated
+on-chain: only members can publish under it. This makes syndicates a
+verifiable byline, useful for editorial groups, advocacy organizations,
+or any collective publisher who wants to share authorship without
+sharing private keys.
+
 ### Moderation as signal, not erasure
 
 Petitions can also moderate content or users. Moderation does **not**
@@ -117,11 +139,13 @@ votes, and balances here are not durable yet. Treat anything on this
 instance as a preview, not a record.
 
 The reference contracts (Variables, Treasury, IdentityRegistry,
-BitRegistry, PetitionRegistry, ModerationRegistry) are live, and the
-full governance loop has been validated end to end. Real BrightID
-verification, a Beacon wallet integration, and the BitNFT collectible
-layer are the next steps. **Mainnet launch is planned for when
-Michelson on Tezos X ships on mainnet.**
+BitRegistry, PetitionRegistry, ModerationRegistry, SyndicateRegistry,
+ProfileRegistry) are live. Variables, BitRegistry and PetitionRegistry
+each run a *Logic + DataStore* split with community-driven logic
+migration via petitions. Real BrightID verification, a Beacon wallet
+integration, and the BitNFT collectible layer are the next steps.
+**Mainnet launch is planned for when Michelson on Tezos X ships on
+mainnet.**
 
 Everything is **open source** at
 [github.com/asbjornenge/politicus](https://github.com/asbjornenge/politicus).

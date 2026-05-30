@@ -6,7 +6,7 @@ import type { Config, Petition } from '../api';
 import { listPetitions } from '../api';
 import {
   sendCreateSetVariablePetition, sendVotePetition, sendResolvePetition,
-  ensureRegistered, readVariable,
+  sendCreateMigrateLogicPetition, ensureRegistered, readVariable,
 } from '../tezos';
 import { KERNEL_VARS, groupedKernelVars, formatValue } from '../kernelVars';
 import { formatTez, pendingVoteTotal, quadraticCostTez } from '../utils';
@@ -179,16 +179,46 @@ export function Petitions({
     }
   }
 
+  async function handleMigrate(target: string, newLogic: string) {
+    if (!tezos || !address) { requestWallet(); return; }
+    const id = crypto.randomUUID();
+    setPending(prev => [{ id, text: `migrate ${target.slice(0, 12)}… → ${newLogic.slice(0, 12)}…`, status: 'preparing…' }, ...prev]);
+    try {
+      const beforePids = new Set(petitions.filter(p => p.creator === address).map(p => p.pid));
+      await ensureRegistered(tezos, cfg, address, s => updatePending(id, { status: s }));
+      updatePending(id, { status: 'signing transaction…' });
+      const op = await sendCreateMigrateLogicPetition(tezos, cfg, target, newLogic);
+      updatePending(id, { status: `in mempool (${op.hash.slice(0, 10)}…), waiting for confirmation…` });
+      await op.confirmation();
+      updatePending(id, {
+        status: 'confirmed, waiting for indexer…',
+        match: (p: Petition) => p.creator === address && !beforePids.has(p.pid),
+        matchStartedAt: Date.now(),
+      });
+    } catch (e: any) {
+      updatePending(id, { error: e.message ?? String(e) });
+    }
+  }
+
   return (
     <div>
       {tezos && address ? (
-        <CreatePetition
-          tezos={tezos}
-          cfg={cfg}
-          onCreate={handleCreate}
-          costMutez={kernelVars.PetitionUpdateVariableCost ?? null}
-          balance={balance}
-        />
+        <>
+          <CreatePetition
+            tezos={tezos}
+            cfg={cfg}
+            onCreate={handleCreate}
+            costMutez={kernelVars.PetitionUpdateVariableCost ?? null}
+            balance={balance}
+          />
+          <CreateMigrateLogic
+            tezos={tezos}
+            cfg={cfg}
+            onCreate={handleMigrate}
+            costMutez={kernelVars.PetitionMigrateLogicCost ?? null}
+            balance={balance}
+          />
+        </>
       ) : (
         <div className="compose" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span className="muted">Sign in to propose a kernel change</span>
@@ -333,6 +363,92 @@ function PetitionRow({
   );
 }
 
+function CreateMigrateLogic({
+  tezos: _tezos, cfg, onCreate, costMutez, balance,
+}: {
+  tezos: TezosToolkit;
+  cfg: Config;
+  onCreate: (target: string, newLogic: string) => void | Promise<void>;
+  costMutez: string | null;
+  balance: number | null;
+}) {
+  const [target, setTarget] = useState('');
+  const [newLogic, setNewLogic] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [open, setOpen] = useState(false);
+
+  const costTez = costMutez ? Number(costMutez) / 1_000_000 : null;
+  const insufficient = costTez !== null && balance !== null && balance < costTez;
+  const valid = target.startsWith('KT1') && newLogic.startsWith('KT1');
+
+  async function submit() {
+    if (!valid) { setErr('both addresses must be KT1…'); return; }
+    setBusy(true); setErr('');
+    try {
+      setTarget(''); setNewLogic('');
+      await onCreate(target.trim(), newLogic.trim());
+    } catch (e: any) {
+      setErr(e.message ?? String(e));
+    } finally { setBusy(false); }
+  }
+
+  const fieldStyle: React.CSSProperties = {
+    flex: 1,
+    background: 'var(--bg)',
+    border: '1px solid var(--border)',
+    color: 'inherit',
+    padding: 6,
+    borderRadius: 4,
+    fontFamily: 'var(--font-mono)',
+    fontSize: 12,
+  };
+
+  return (
+    <details open={open} onToggle={e => setOpen((e.target as HTMLDetailsElement).open)} style={{ marginBottom: 20 }}>
+      <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)' }}>
+        Advanced governance — propose logic migration
+      </summary>
+      <div className="compose" style={{ marginTop: 8 }}>
+        <p className="muted" style={{ fontSize: 12, lineHeight: 1.4, marginBottom: 10 }}>
+          Transfer write authority on a contract's data store from its current Logic implementation to a new one.
+          Used to upgrade business rules (e.g., add bit fields, new vote types) without losing data. Current Logic
+          contracts: BitRegistry = <code>{cfg.contracts.BitRegistry.slice(0, 12)}…</code>,
+          {' '}Variables = <code>{cfg.contracts.Variables.slice(0, 12)}…</code>,
+          {' '}PetitionRegistry = <code>{cfg.contracts.PetitionRegistry.slice(0, 12)}…</code>.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+          <input
+            style={fieldStyle}
+            placeholder="target logic contract (KT1…)"
+            value={target}
+            onChange={e => setTarget(e.target.value)}
+            disabled={busy}
+          />
+          <input
+            style={fieldStyle}
+            placeholder="new logic contract (KT1…)"
+            value={newLogic}
+            onChange={e => setNewLogic(e.target.value)}
+            disabled={busy}
+          />
+        </div>
+        <div className="actions">
+          <span className="muted">PetitionMigrateLogicCost · quorum {' '}5000bps · majority 9000bps</span>
+          <button
+            onClick={submit}
+            disabled={busy || !valid || insufficient}
+            title={insufficient ? `need ${formatTez(costTez!)} ꜩ` : undefined}
+          >
+            {busy ? 'submitting…' : (costTez !== null ? `propose · ${formatTez(costTez)} ꜩ` : 'propose')}
+          </button>
+        </div>
+        {err && <div className="error">{err}</div>}
+      </div>
+    </details>
+  );
+}
+
 function prettyAction(t: string) {
   return {
     set_variable: 'Set variable',
@@ -340,6 +456,7 @@ function prettyAction(t: string) {
     mod_content_del: 'Un-moderate content',
     mod_user_add: 'Moderate user',
     mod_user_del: 'Un-moderate user',
+    migrate_logic: 'Migrate logic contract',
   }[t] ?? t;
 }
 
@@ -357,6 +474,11 @@ function renderPayload(t: string, payload: any) {
   if (t === 'mod_user_add' || t === 'mod_user_del') {
     const addr = typeof payload === 'string' ? payload : payload?.address;
     return <code>{addr}</code>;
+  }
+  if (t === 'migrate_logic') {
+    const target = payload?.address_0 ?? payload?.['0'] ?? payload?.target;
+    const newLogic = payload?.address_1 ?? payload?.['1'] ?? payload?.new_logic;
+    return <span><code>{target?.slice(0, 16)}…</code> → <code>{newLogic?.slice(0, 16)}…</code></span>;
   }
   if (typeof payload === 'string') return <code>{payload.slice(0, 24)}…</code>;
   return <code>{JSON.stringify(payload).slice(0, 80)}</code>;

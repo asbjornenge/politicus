@@ -31,6 +31,7 @@ type storage = {
   syndicate_registry : address ;
   variables          : address ;
   treasury           : address ;
+  governance         : address ;
 }
 
 (* ---- helpers ---- *)
@@ -77,6 +78,13 @@ let call_apply_vote (data_store : address) (bid : bytes) (voter : address) (dire
     | None -> failwith "DATASTORE_APPLY_VOTE_NOT_FOUND" in
   Tezos.Next.Operation.transaction (bid, voter, direction, votes_n, vote_time) 0mutez c
 
+let call_data_store_set_admin (data_store : address) (new_admin : address) : operation =
+  let c : address contract =
+    match (Tezos.get_entrypoint_opt "%set_admin" data_store : address contract option) with
+    | Some c -> c
+    | None -> failwith "DATASTORE_SET_ADMIN_NOT_FOUND" in
+  Tezos.Next.Operation.transaction new_admin 0mutez c
+
 (* ---- entrypoints ---- *)
 
 [@entry]
@@ -120,3 +128,18 @@ let vote_bit (params : bytes * bool * nat) (store : storage) : operation list * 
   let vote_op = call_apply_vote store.data_store bid caller direction votes_n (Tezos.get_now ()) in
   let pay_op = send_to_treasury store.treasury total_cost in
   [vote_op ; pay_op], store
+
+(* ---- governance ---- *)
+
+[@entry]
+let set_governance (new_gov : address) (store : storage) : operation list * storage =
+  let () = if Tezos.get_sender () <> store.governance then failwith "NOT_GOVERNANCE" in
+  ([] : operation list), { store with governance = new_gov }
+
+[@entry]
+let governance_migrate (new_logic : address) (store : storage) : operation list * storage =
+  let () = if Tezos.get_sender () <> store.governance then failwith "NOT_GOVERNANCE" in
+  [call_data_store_set_admin store.data_store new_logic], store
+
+[@view]
+let get_governance (() : unit) (store : storage) : address = store.governance

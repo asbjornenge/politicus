@@ -2,13 +2,17 @@
   "shadownet": {
     "Treasury": "KT1KKH5KPTmYJ5NtLnShMiWHVhU4wik3Pcih",
     "IdentityRegistry": "KT1LBdKpeUNd2hq49q4keziRm431QYytyBfS",
-    "ModerationRegistry": "KT1PRAZuSK9gGBGukrtyuUwoVojhL9G6XyQU",
+    "ModerationRegistry": "KT1Ve66UStV32usfdJJ9fVH3hfpRsqoE71vR",
     "Variables": "KT1CM56B5QdrVnBPc2RRc5KC9YeUJyxQGeWU",
     "BitRegistry": "KT193vzUnno9keXoAgpCunscMUYUviREE96d",
     "PetitionRegistry": "KT1UEUHiDvszkQeRYNEexdTUgGxtfyaJ86xq",
-    "SyndicateRegistry": "KT1UfhqhZQbGxRTMhTmr3y2dazLmM6nfdzFZ",
-    "ProfileRegistry": "KT1REsb7gMQebkoKTHowuEFSLDheWL738d5e",
-    "BitDataStore": "KT1UnmcdPCQ7CGT3URpfviEgwWB2qmh76oxo",
-    "BitRegistryLogic": "KT1DE26qnVv81XRVZezARh2fj9MPTAeyxLQU"
+    "SyndicateRegistry": "KT1ArzZZtYsPjmdjFXzX5mycHtEMzReYNLVT",
+    "ProfileRegistry": "KT1V4ny9FkYv62UzjKcpSsYocqYDDw7EDFdB",
+    "BitDataStore": "KT1HpJimspWuEjFejN1NtYruqY84vZp7zcbA",
+    "BitRegistryLogic": "KT1Gr8LbSGjaPZSsVpywznppaMTHWew8gUbx",
+    "VariablesDataStore": "KT1HS7wUQ8soLtswSMKK288pDwy6sreuxnVx",
+    "VariablesLogic": "KT1FhZRe1Uzv3j1L2SLtjZXne9DC8Bns4xqW",
+    "PetitionDataStore": "KT19uJ79jfLJq4qE8CVhynZt3aQz6Pcj2wsx",
+    "PetitionLogic": "KT1KQfADK5dDNwSWMJo7TqE6n4qUScu76h1B"
   }
 }

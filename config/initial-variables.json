@@ -1,8 +1,9 @@
 {
   "_comment": "Initial kernel variables. tez values in mutez, percentages in basis points (1% = 100, 100% = 10000), durations in seconds. Mirrors README.md defaults but denominated in tez (not USD) for MVP.",
 
-  "BitCost": "100000",
-  "BitVoteCost": "50000",
+  "BitCost": "1000000",
+  "BitVoteCost": "1000000",
+  "SyndicateCreationCost": "5000000",
 
   "PetitionContentModerationAddCost": "100000000",
   "PetitionContentModerationDelCost": "50000000",
@@ -10,17 +11,20 @@
   "PetitionUserModerationDelCost": "125000000",
   "PetitionUpdateVariableCost": "500000000",
   "PetitionUpdateKernelCost": "1000000000",
+  "PetitionMigrateLogicCost": "1000000000",
   "PetitionVoteCost": "250000",
 
   "PetitionContentModerationQuorum": "100",
   "PetitionUserModerationQuorum": "200",
   "PetitionUpdateVariableQuorum": "4000",
   "PetitionUpdateKernelQuorum": "5000",
+  "PetitionMigrateLogicQuorum": "5000",
 
   "PetitionContentModerationMajority": "5000",
   "PetitionUserModerationMajority": "5000",
   "PetitionUpdateVariableMajority": "8000",
   "PetitionUpdateKernelMajority": "9000",
+  "PetitionMigrateLogicMajority": "9000",
 
   "PetitionDuration": "2592000",
 

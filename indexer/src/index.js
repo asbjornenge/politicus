@@ -8,6 +8,7 @@ const {
   BIT_REGISTRY,
   BIT_DATA_STORE,
   PETITION_REGISTRY,
+  PETITION_DATA_STORE,
   MODERATION_REGISTRY,
   SYNDICATE_REGISTRY,
   PROFILE_REGISTRY,
@@ -282,27 +283,40 @@ async function pollBigmaps(ptrs) {
   }
 }
 
+function extractAdminVoteFields(p) {
+  // admin_apply_vote(bytes * address * bool * nat * timestamp). TzKT returns
+  // either a positional object or named one depending on type metadata.
+  if (!p) return null;
+  const bid = p.bytes ?? p.bytes_0 ?? p['0'];
+  const voter = p.address ?? p.address_1 ?? p['1'];
+  const direction = p.bool ?? p.bool_2 ?? p['2'];
+  const votes = p.nat ?? p.nat_3 ?? p['3'];
+  const voteTime = p.timestamp ?? p.timestamp_4 ?? p['4'];
+  if (!bid || !voter) return null;
+  return {
+    bid,
+    voter,
+    direction: direction === true || direction === 'true',
+    votes: String(votes),
+    voteTime,
+  };
+}
+
 async function pollVoteOps() {
+  if (!BIT_DATA_STORE) return;
   while (true) {
     const cursor = await getCursor('votes');
-    const url = `${TZKT_API}/v1/operations/transactions?target=${BIT_REGISTRY}&entrypoint=vote_bit&id.gt=${cursor}&sort.asc=id&limit=100&status=applied`;
+    const url = `${TZKT_API}/v1/operations/transactions?target=${BIT_DATA_STORE}&entrypoint=admin_apply_vote&id.gt=${cursor}&sort.asc=id&limit=100&status=applied`;
     const ops = await fetchJson(url);
     if (ops.length === 0) return;
 
     for (const op of ops) {
-      const p = op.parameter?.value;
-      if (!p) continue;
-      const bid = p.bytes;
-      const direction = p.bool === true || p.bool === 'true';
-      const votes = String(p.nat);
-      const voter = op.sender?.address;
-      const voteTime = op.timestamp;
-      if (!bid || !voter) continue;
-      const vid = `${bid}:${voter}`;
-
+      const f = extractAdminVoteFields(op.parameter?.value);
+      if (!f) continue;
+      const vid = `${f.bid}:${f.voter}`;
       await sql`
         INSERT INTO votes (vid, bid, voter, direction, votes, vote_time)
-        VALUES (${vid}, ${bid}, ${voter}, ${direction}, ${votes}, ${voteTime})
+        VALUES (${vid}, ${f.bid}, ${f.voter}, ${f.direction}, ${f.votes}, ${f.voteTime ?? op.timestamp})
         ON CONFLICT (vid) DO UPDATE SET
           direction = EXCLUDED.direction,
           votes = EXCLUDED.votes,
@@ -318,26 +332,20 @@ async function pollVoteOps() {
 }
 
 async function pollPetitionVoteOps() {
+  if (!PETITION_DATA_STORE) return;
   while (true) {
     const cursor = await getCursor('petition_votes');
-    const url = `${TZKT_API}/v1/operations/transactions?target=${PETITION_REGISTRY}&entrypoint=vote_petition&id.gt=${cursor}&sort.asc=id&limit=100&status=applied`;
+    const url = `${TZKT_API}/v1/operations/transactions?target=${PETITION_DATA_STORE}&entrypoint=admin_apply_vote&id.gt=${cursor}&sort.asc=id&limit=100&status=applied`;
     const ops = await fetchJson(url);
     if (ops.length === 0) return;
 
     for (const op of ops) {
-      const p = op.parameter?.value;
-      if (!p) continue;
-      const pid = p.bytes;
-      const direction = p.bool === true || p.bool === 'true';
-      const votes = String(p.nat);
-      const voter = op.sender?.address;
-      const voteTime = op.timestamp;
-      if (!pid || !voter) continue;
-      const pvid = `${pid}:${voter}`;
-
+      const f = extractAdminVoteFields(op.parameter?.value);
+      if (!f) continue;
+      const pvid = `${f.bid}:${f.voter}`;
       await sql`
         INSERT INTO petition_votes (pvid, pid, voter, direction, votes, vote_time)
-        VALUES (${pvid}, ${pid}, ${voter}, ${direction}, ${votes}, ${voteTime})
+        VALUES (${pvid}, ${f.bid}, ${f.voter}, ${f.direction}, ${f.votes}, ${f.voteTime ?? op.timestamp})
         ON CONFLICT (pvid) DO UPDATE SET
           direction = EXCLUDED.direction,
           votes = EXCLUDED.votes,
@@ -378,7 +386,8 @@ async function main() {
   const id = await getBigmapPtrs(IDENTITY_REGISTRY);
   const bitStore = BIT_DATA_STORE ?? BIT_REGISTRY;
   const br = await getBigmapPtrs(bitStore);
-  const pr = await getBigmapPtrs(PETITION_REGISTRY);
+  const petitionStore = PETITION_DATA_STORE ?? PETITION_REGISTRY;
+  const pr = await getBigmapPtrs(petitionStore);
   const mr = await getBigmapPtrs(MODERATION_REGISTRY);
   const sr = SYNDICATE_REGISTRY ? await getBigmapPtrs(SYNDICATE_REGISTRY) : {};
   const prof = PROFILE_REGISTRY ? await getBigmapPtrs(PROFILE_REGISTRY) : {};
