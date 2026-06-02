@@ -11,6 +11,7 @@ import {
 import { Compose } from './Compose';
 import { PendingPost, type PendingItem } from './PendingPost';
 import { Markdown } from './Markdown';
+import { BitNFTSection } from './BitNFTSection';
 import { BitMeta } from './BitMeta';
 import { formatTez, pendingVoteTotal, quadraticCostTez } from '../utils';
 
@@ -290,6 +291,7 @@ export function BitPage({ tezos, cfg, address, balance, kernelVars, requestWalle
         </div>
         {notice && <div className="success" style={{ marginTop: 10 }}>{notice}</div>}
         {err && <div className="error" style={{ marginTop: 10 }}>{err}</div>}
+        <BitNFTSection bit={b} tezos={tezos} cfg={cfg} address={address} balance={balance} />
       </div>
 
       {replying && (

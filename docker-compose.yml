@@ -35,6 +35,7 @@ services:
       MODERATION_REGISTRY: ${MODERATION_REGISTRY}
       SYNDICATE_REGISTRY: ${SYNDICATE_REGISTRY}
       PROFILE_REGISTRY: ${PROFILE_REGISTRY}
+      BITNFT_FACTORY: ${BITNFT_FACTORY}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.politicus-api.rule=Host(`${POLITICUS_HOST}`) && PathPrefix(`/api`)"
@@ -60,6 +61,7 @@ services:
       MODERATION_REGISTRY: ${MODERATION_REGISTRY}
       SYNDICATE_REGISTRY: ${SYNDICATE_REGISTRY}
       PROFILE_REGISTRY: ${PROFILE_REGISTRY}
+      BITNFT_FACTORY: ${BITNFT_FACTORY}
       IPFS_GATEWAY_URL: ${IPFS_GATEWAY_URL}
       POLL_INTERVAL_MS: "10000"
     depends_on:

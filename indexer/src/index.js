@@ -12,6 +12,7 @@ const {
   MODERATION_REGISTRY,
   SYNDICATE_REGISTRY,
   PROFILE_REGISTRY,
+  BITNFT_FACTORY,
   IPFS_GATEWAY_URL = '',
   POLL_INTERVAL_MS = '10000',
 } = process.env;
@@ -211,6 +212,25 @@ async function applyBigmapUpdate(u, ptrs) {
       if (syndCheck.length > 0) await applyProfileToSyndicate(key, doc);
       else await applyProfileToUser(key, doc);
     }
+  } else if (bigmap === ptrs.nft_collections) {
+    if (action === 'remove_key') {
+      await sql`DELETE FROM nft_collections WHERE address = ${value}`;
+      return;
+    }
+    if (!value) return;
+    const addr = value;
+    const ownerKey = key; // hex of blake2b("u"|"s" + pack(...))
+    const meta = await fetchCollectionOwnerKind(addr);
+    if (!meta) return;
+    await sql`
+      INSERT INTO nft_collections (address, owner_kind, owner_address, owner_sid)
+      VALUES (${addr}, ${meta.kind}, ${meta.address ?? null}, ${meta.sid ?? null})
+      ON CONFLICT (address) DO UPDATE SET
+        owner_kind = EXCLUDED.owner_kind,
+        owner_address = EXCLUDED.owner_address,
+        owner_sid = EXCLUDED.owner_sid,
+        updated_at = now()
+    `;
   } else if (bigmap === ptrs.syndicates) {
     if (action === 'remove_key') {
       await sql`DELETE FROM syndicate_members WHERE sid = ${key}`;
@@ -283,7 +303,7 @@ async function applyBigmapUpdate(u, ptrs) {
 }
 
 async function pollBigmaps(ptrs) {
-  const targets = [ptrs.bits, ptrs.users, ptrs.petitions, ptrs.mod_content, ptrs.mod_users, ptrs.syndicates, ptrs.profiles].filter(Boolean);
+  const targets = [ptrs.bits, ptrs.users, ptrs.petitions, ptrs.mod_content, ptrs.mod_users, ptrs.syndicates, ptrs.profiles, ptrs.nft_collections].filter(Boolean);
   if (targets.length === 0) return;
 
   while (true) {
@@ -377,6 +397,84 @@ async function pollPetitionVoteOps() {
   }
 }
 
+async function fetchCollectionOwnerKind(collectionAddr) {
+  try {
+    const r = await fetch(`${TZKT_API}/v1/contracts/${collectionAddr}/storage`);
+    if (!r.ok) return null;
+    const s = await r.json();
+    const owner = s?.owner;
+    if (!owner) return null;
+    if (owner.user) return { kind: 'user', address: owner.user };
+    if (owner.syndicate) return { kind: 'syndicate', sid: owner.syndicate[1] ?? owner.syndicate.sid ?? null };
+    return null;
+  } catch { return null; }
+}
+
+async function syncCollection(addr) {
+  try {
+    const bms = await fetch(`${TZKT_API}/v1/contracts/${addr}/bigmaps`);
+    if (!bms.ok) return;
+    const arr = await bms.json();
+    const editionsPtr = arr.find(b => b.path === 'editions')?.ptr;
+    const ledgerPtr = arr.find(b => b.path === 'ledger')?.ptr;
+
+    if (editionsPtr) {
+      const ed = await fetch(`${TZKT_API}/v1/bigmaps/${editionsPtr}/keys?active=true&limit=200`);
+      if (ed.ok) {
+        const keys = await ed.json();
+        for (const k of keys) {
+          const tokenId = Number(k.key);
+          const v = k.value;
+          if (!v) continue;
+          await sql`
+            INSERT INTO nft_editions
+              (collection_address, token_id, bid, total_editions, mint_price,
+               royalty_bps, treasury_primary_bps, treasury_secondary_bps,
+               sold, created_at)
+            VALUES (${addr}, ${tokenId}, ${v.bid}, ${v.total_editions}, ${v.mint_price},
+                    ${v.royalty_bps}, ${v.treasury_primary_bps}, ${v.treasury_secondary_bps},
+                    ${v.sold}, ${v.created_at})
+            ON CONFLICT (collection_address, token_id) DO UPDATE SET
+              sold = EXCLUDED.sold,
+              updated_at = now()
+          `;
+        }
+      }
+    }
+
+    if (ledgerPtr) {
+      const lg = await fetch(`${TZKT_API}/v1/bigmaps/${ledgerPtr}/keys?active=true&limit=500`);
+      if (lg.ok) {
+        const keys = await lg.json();
+        for (const k of keys) {
+          const holder = k.key?.address ?? k.key?.[0];
+          const tokenId = Number(k.key?.nat ?? k.key?.[1]);
+          const balance = Number(k.value);
+          if (!holder || !Number.isFinite(tokenId)) continue;
+          if (balance === 0) {
+            await sql`DELETE FROM nft_tokens WHERE collection_address = ${addr} AND token_id = ${tokenId} AND holder = ${holder}`;
+          } else {
+            await sql`
+              INSERT INTO nft_tokens (collection_address, token_id, holder, balance)
+              VALUES (${addr}, ${tokenId}, ${holder}, ${balance})
+              ON CONFLICT (collection_address, token_id, holder) DO UPDATE SET
+                balance = EXCLUDED.balance,
+                updated_at = now()
+            `;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error(`[nft sync ${addr}] error:`, e.message);
+  }
+}
+
+async function pollCollections() {
+  const rows = await sql`SELECT address FROM nft_collections`;
+  for (const r of rows) await syncCollection(r.address);
+}
+
 async function backfillMissingContent() {
   if (!IPFS_GATEWAY_URL) return;
   const rows = await sql`
@@ -434,6 +532,7 @@ async function main() {
   const mr = await getBigmapPtrs(MODERATION_REGISTRY);
   const sr = SYNDICATE_REGISTRY ? await getBigmapPtrs(SYNDICATE_REGISTRY) : {};
   const prof = PROFILE_REGISTRY ? await getBigmapPtrs(PROFILE_REGISTRY) : {};
+  const nft = BITNFT_FACTORY ? await getBigmapPtrs(BITNFT_FACTORY) : {};
   const ptrs = {
     users: id.users,
     bits: br.bits,
@@ -442,6 +541,7 @@ async function main() {
     mod_users: mr.moderated_users,
     syndicates: sr.syndicates,
     profiles: prof.profiles,
+    nft_collections: nft.collections,
   };
   console.log(`  Bigmap pointers:`, ptrs);
 
@@ -450,6 +550,7 @@ async function main() {
       await pollBigmaps(ptrs);
       await pollVoteOps();
       await pollPetitionVoteOps();
+      await pollCollections();
     } catch (e) {
       console.error('Poll error:', e.message);
     }

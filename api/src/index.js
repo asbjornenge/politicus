@@ -27,6 +27,7 @@ const {
   MODERATION_REGISTRY,
   SYNDICATE_REGISTRY,
   PROFILE_REGISTRY,
+  BITNFT_FACTORY,
 } = process.env;
 
 if (!DATABASE_URL) { console.error('DATABASE_URL missing'); process.exit(1); }
@@ -115,8 +116,52 @@ app.get('/api/config', async c => {
       ModerationRegistry: MODERATION_REGISTRY,
       SyndicateRegistry: SYNDICATE_REGISTRY || undefined,
       ProfileRegistry: PROFILE_REGISTRY || undefined,
+      BitNFTFactory: BITNFT_FACTORY || undefined,
     },
   });
+});
+
+// --- BitNFT ---
+
+app.get('/api/nft/collections/by-user/:address', async c => {
+  const address = c.req.param('address');
+  const rows = await sql`SELECT * FROM nft_collections WHERE owner_address = ${address} LIMIT 1`;
+  if (rows.length === 0) return c.json({ collection: null });
+  return c.json({ collection: rows[0] });
+});
+
+app.get('/api/nft/collections/by-syndicate/:sid', async c => {
+  const sid = c.req.param('sid');
+  const rows = await sql`SELECT * FROM nft_collections WHERE owner_sid = ${sid} LIMIT 1`;
+  if (rows.length === 0) return c.json({ collection: null });
+  return c.json({ collection: rows[0] });
+});
+
+app.get('/api/nft/editions/by-bit/:bid', async c => {
+  const bid = c.req.param('bid');
+  const rows = await sql`
+    SELECT e.*, c.owner_kind, c.owner_address, c.owner_sid
+    FROM nft_editions e
+    JOIN nft_collections c ON c.address = e.collection_address
+    WHERE e.bid = ${bid}
+    ORDER BY e.created_at DESC
+  `;
+  return c.json({ editions: rows });
+});
+
+app.get('/api/nft/owned/:address', async c => {
+  const address = c.req.param('address');
+  const rows = await sql`
+    SELECT t.collection_address, t.token_id, t.balance,
+      e.bid, e.total_editions, e.sold, e.mint_price,
+      c.owner_kind, c.owner_address, c.owner_sid
+    FROM nft_tokens t
+    JOIN nft_editions e ON e.collection_address = t.collection_address AND e.token_id = t.token_id
+    JOIN nft_collections c ON c.address = t.collection_address
+    WHERE t.holder = ${address} AND t.balance > 0
+    ORDER BY t.updated_at DESC
+  `;
+  return c.json({ tokens: rows });
 });
 
 // --- Content ---

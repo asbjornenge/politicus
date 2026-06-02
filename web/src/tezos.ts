@@ -1,4 +1,4 @@
-import { TezosToolkit } from '@taquito/taquito';
+import { TezosToolkit, MichelsonMap } from '@taquito/taquito';
 import { InMemorySigner } from '@taquito/signer';
 import type { Config } from './api';
 
@@ -259,6 +259,81 @@ export async function sendUpdateSyndicateProfile(tezos: TezosToolkit, cfg: Confi
   if (!cfg.contracts.ProfileRegistry) throw new Error('ProfileRegistry not deployed');
   const c = await tezos.contract.at(cfg.contracts.ProfileRegistry);
   return await c.methodsObject.update_syndicate_profile({ 0: sid, 1: cidToHexBytes(profileHash) }).send();
+}
+
+// --- BitNFT ---
+
+import bitNFTCollectionCode from './contracts/BitNFTCollection.json';
+
+export type OwnerKind =
+  | { kind: 'user'; address: string }
+  | { kind: 'syndicate'; syndicateRegistry: string; sid: string };
+
+export async function originateBitNFTCollection(
+  tezos: TezosToolkit,
+  cfg: Config,
+  owner: OwnerKind,
+) {
+  if (!cfg.contracts.SyndicateRegistry) throw new Error('SyndicateRegistry not deployed');
+  if (!cfg.contracts.BitRegistry) throw new Error('BitRegistry not deployed');
+  const storageOwner = owner.kind === 'user'
+    ? { user: owner.address }
+    : { syndicate: { 0: owner.syndicateRegistry, 1: owner.sid } };
+  const op = await tezos.contract.originate({
+    code: bitNFTCollectionCode as any,
+    storage: {
+      owner: storageOwner,
+      variables: cfg.contracts.Variables,
+      treasury: cfg.contracts.Treasury,
+      bit_registry: cfg.contracts.BitRegistry,
+      identity_registry: cfg.contracts.IdentityRegistry,
+      ledger: new MichelsonMap(),
+      operators: new MichelsonMap(),
+      editions: new MichelsonMap(),
+      total_supply: new MichelsonMap(),
+      next_token_id: 0,
+    },
+  });
+  return op;
+}
+
+export async function sendRegisterCollection(
+  tezos: TezosToolkit,
+  cfg: Config,
+  collectionAddr: string,
+  owner: OwnerKind,
+) {
+  if (!cfg.contracts.BitNFTFactory) throw new Error('BitNFTFactory not deployed');
+  const factory = await tezos.contract.at(cfg.contracts.BitNFTFactory);
+  const ownerKind = owner.kind === 'user'
+    ? { user: owner.address }
+    : { syndicate: { 0: owner.syndicateRegistry, 1: owner.sid } };
+  // The factory has a single entrypoint, so Taquito exposes it as `default`.
+  return await factory.methodsObject.default({ 0: collectionAddr, 1: ownerKind }).send();
+}
+
+export async function sendMintEdition(
+  tezos: TezosToolkit,
+  collectionAddr: string,
+  bid: string,
+  totalEditions: number,
+  mintPriceMutez: number,
+  royaltyBps: number,
+) {
+  const c = await tezos.contract.at(collectionAddr);
+  return await c.methodsObject.mint_edition({
+    0: bid, 1: String(totalEditions), 2: String(mintPriceMutez), 3: String(royaltyBps),
+  }).send();
+}
+
+export async function sendBuyEdition(
+  tezos: TezosToolkit,
+  collectionAddr: string,
+  tokenId: number,
+  priceMutez: number,
+) {
+  const c = await tezos.contract.at(collectionAddr);
+  return await c.methodsObject.buy(String(tokenId)).send({ amount: priceMutez, mutez: true });
 }
 
 // Legacy wrappers that fully await confirmation. Kept for the few callers that

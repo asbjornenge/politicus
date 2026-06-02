@@ -30,7 +30,45 @@ export type Config = {
     ModerationRegistry: string;
     SyndicateRegistry?: string;
     ProfileRegistry?: string;
+    BitNFTFactory?: string;
   };
+};
+
+export type NFTCollection = {
+  address: string;
+  owner_kind: 'user' | 'syndicate';
+  owner_address: string | null;
+  owner_sid: string | null;
+  registered_at: string;
+};
+
+export type NFTEdition = {
+  collection_address: string;
+  token_id: number;
+  bid: string;
+  total_editions: number;
+  mint_price: number;        // mutez
+  royalty_bps: number;
+  treasury_primary_bps: number;
+  treasury_secondary_bps: number;
+  sold: number;
+  created_at: string;
+  owner_kind: 'user' | 'syndicate';
+  owner_address: string | null;
+  owner_sid: string | null;
+};
+
+export type NFTOwnedToken = {
+  collection_address: string;
+  token_id: number;
+  balance: number;
+  bid: string;
+  total_editions: number;
+  sold: number;
+  mint_price: number;
+  owner_kind: 'user' | 'syndicate';
+  owner_address: string | null;
+  owner_sid: string | null;
 };
 
 export type Syndicate = {
@@ -203,6 +241,34 @@ export async function uploadImage(file: File): Promise<string> {
   if (!r.ok) throw new Error('image upload failed');
   const { cid } = await r.json();
   return cid;
+}
+
+export async function getMyCollection(address: string): Promise<NFTCollection | null> {
+  const r = await fetch(`/api/nft/collections/by-user/${address}`);
+  if (!r.ok) return null;
+  const { collection } = await r.json();
+  return collection;
+}
+
+export async function getSyndicateCollection(sid: string): Promise<NFTCollection | null> {
+  const r = await fetch(`/api/nft/collections/by-syndicate/${sid}`);
+  if (!r.ok) return null;
+  const { collection } = await r.json();
+  return collection;
+}
+
+export async function getEditionsForBit(bid: string): Promise<NFTEdition[]> {
+  const r = await fetch(`/api/nft/editions/by-bit/${bid}`);
+  if (!r.ok) return [];
+  const { editions } = await r.json();
+  return editions;
+}
+
+export async function getOwnedTokens(address: string): Promise<NFTOwnedToken[]> {
+  const r = await fetch(`/api/nft/owned/${address}`);
+  if (!r.ok) return [];
+  const { tokens } = await r.json();
+  return tokens;
 }
 
 export async function listMySyndicates(address: string): Promise<Array<Syndicate & { is_admin: boolean }>> {
