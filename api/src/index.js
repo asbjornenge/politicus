@@ -331,6 +331,7 @@ app.get('/api/bits', async c => {
     ? await sql`
         SELECT b.*, c.body, c.content_type, u.username, u.bio,
           s.name AS syndicate_name,
+          (SELECT count(*) FROM nft_editions ne WHERE ne.bid = b.bid) AS nft_edition_count,
           v.direction AS my_vote, v.votes AS my_votes,
           false AS content_moderated, false AS creator_moderated
         FROM bits b
@@ -347,6 +348,7 @@ app.get('/api/bits', async c => {
     : await sql`
         SELECT b.*, c.body, c.content_type, u.username, u.bio,
           s.name AS syndicate_name,
+          (SELECT count(*) FROM nft_editions ne WHERE ne.bid = b.bid) AS nft_edition_count,
           v.direction AS my_vote, v.votes AS my_votes,
           false AS content_moderated, false AS creator_moderated
         FROM bits b
@@ -368,6 +370,7 @@ app.get('/api/bits/:bid', async c => {
   const rows = await sql`
     SELECT b.*, c.body, c.content_type, u.username, u.bio,
       s.name AS syndicate_name,
+      (SELECT count(*) FROM nft_editions ne WHERE ne.bid = b.bid) AS nft_edition_count,
       v.direction AS my_vote, v.votes AS my_votes,
       EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash) AS content_moderated,
       EXISTS (SELECT 1 FROM moderated_users mu WHERE mu.address = b.creator) AS creator_moderated
@@ -402,6 +405,7 @@ app.get('/api/bits/:bid', async c => {
   const replies = await sql`
     SELECT b.*, c.body, c.content_type, u.username, u.bio,
       s.name AS syndicate_name,
+      (SELECT count(*) FROM nft_editions ne WHERE ne.bid = b.bid) AS nft_edition_count,
       v.direction AS my_vote, v.votes AS my_votes,
       EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash) AS content_moderated,
       EXISTS (SELECT 1 FROM moderated_users mu WHERE mu.address = b.creator) AS creator_moderated
@@ -441,6 +445,7 @@ app.get('/api/users/:address', async c => {
   const bitRows = await sql`
     SELECT b.*, c.body, c.content_type, u.username, u.bio,
       s.name AS syndicate_name,
+      (SELECT count(*) FROM nft_editions ne WHERE ne.bid = b.bid) AS nft_edition_count,
       EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash) AS content_moderated,
       EXISTS (SELECT 1 FROM moderated_users mu WHERE mu.address = b.creator) AS creator_moderated
     FROM bits b
@@ -526,6 +531,7 @@ app.get('/api/syndicates/:sid', async c => {
   const bits = await sql`
     SELECT b.*, c.body, c.content_type, u.username, u.bio,
       s.name AS syndicate_name,
+      (SELECT count(*) FROM nft_editions ne WHERE ne.bid = b.bid) AS nft_edition_count,
       v.direction AS my_vote, v.votes AS my_votes,
       EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash) AS content_moderated,
       EXISTS (SELECT 1 FROM moderated_users mu WHERE mu.address = b.creator) AS creator_moderated
@@ -619,6 +625,7 @@ function formatBit(row) {
     parent: row.parent,
     syndicate: row.syndicate,
     syndicate_name: row.syndicate_name ?? null,
+    nft_edition_count: Number(row.nft_edition_count ?? 0),
     creation_time: row.creation_time,
     yay: Number(row.yay),
     nay: Number(row.nay),

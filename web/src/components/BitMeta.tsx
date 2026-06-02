@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Building2 } from 'lucide-react';
+import { Building2, Sparkles } from 'lucide-react';
 import type { Bit } from '../api';
 import { formatBitDate } from '../utils';
 
@@ -37,6 +37,14 @@ export function BitMeta({ bit, right }: { bit: Bit; right?: React.ReactNode }) {
           >
             {bit.creator_username ?? bit.creator.slice(0, 12) + '…'}
           </Link>
+        )}
+        {bit.nft_edition_count > 0 && (
+          <span
+            title={`${bit.nft_edition_count} edition${bit.nft_edition_count === 1 ? '' : 's'} available as collectible`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color: 'var(--accent-soft)', fontSize: 11 }}
+          >
+            <Sparkles size={11} />
+          </span>
         )}
       </span>
       {right ?? (

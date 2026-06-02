@@ -8,6 +8,7 @@ export type Bit = {
   parent: string | null;
   syndicate: string | null;
   syndicate_name: string | null;
+  nft_edition_count: number;
   creation_time: string;
   yay: number;
   nay: number;
