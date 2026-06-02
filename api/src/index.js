@@ -146,7 +146,21 @@ app.get('/api/nft/editions/by-bit/:bid', async c => {
     WHERE e.bid = ${bid}
     ORDER BY e.created_at DESC
   `;
-  return c.json({ editions: rows });
+  return c.json({ editions: rows.map(r => ({
+    collection_address: r.collection_address,
+    token_id: Number(r.token_id),
+    bid: r.bid,
+    total_editions: Number(r.total_editions),
+    mint_price: Number(r.mint_price),
+    royalty_bps: Number(r.royalty_bps),
+    treasury_primary_bps: Number(r.treasury_primary_bps),
+    treasury_secondary_bps: Number(r.treasury_secondary_bps),
+    sold: Number(r.sold),
+    created_at: r.created_at,
+    owner_kind: r.owner_kind,
+    owner_address: r.owner_address,
+    owner_sid: r.owner_sid,
+  })) });
 });
 
 app.get('/api/nft/owned/:address', async c => {
