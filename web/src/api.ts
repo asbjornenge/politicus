@@ -69,6 +69,12 @@ export type NFTOwnedToken = {
   owner_kind: 'user' | 'syndicate';
   owner_address: string | null;
   owner_sid: string | null;
+  bit_creator: string | null;
+  bit_creator_username: string | null;
+  bit_syndicate: string | null;
+  bit_syndicate_name: string | null;
+  bit_creation_time: string | null;
+  bit_content: string | null;
 };
 
 export type Syndicate = {

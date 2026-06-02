@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronUp, ChevronDown, Flag, X as XIcon, MapPin, Link as LinkIcon } from 'lucide-react';
+import { ChevronUp, ChevronDown, Flag, X as XIcon, MapPin, Link as LinkIcon, Sparkles } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
-import type { Config, Bit, User, ProfileDoc, ProfileLink } from '../api';
-import { getUser, getProfileDoc, postProfile, uploadImage } from '../api';
+import type { Config, Bit, User, ProfileDoc, ProfileLink, NFTOwnedToken } from '../api';
+import { getUser, getProfileDoc, postProfile, uploadImage, getOwnedTokens } from '../api';
 import { registerUser, placeholderBrightIdHash, loadSecretKey, sendUpdateUserProfile } from '../tezos';
 import { formatBitDate, formatTez, LOW_BALANCE_TEZ } from '../utils';
 import { Markdown } from './Markdown';
@@ -18,6 +18,7 @@ export function ProfilePage({ tezos, cfg, address, balance }: {
   const { address: target } = useParams<{ address: string }>();
   const [data, setData] = useState<{ user: User; bits: Bit[] } | null>(null);
   const [profile, setProfile] = useState<ProfileDoc | null>(null);
+  const [ownedTokens, setOwnedTokens] = useState<NFTOwnedToken[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
 
@@ -32,6 +33,7 @@ export function ProfilePage({ tezos, cfg, address, balance }: {
       } else {
         setProfile(null);
       }
+      if (target) setOwnedTokens(await getOwnedTokens(target));
     } finally { setLoading(false); }
   }
 
@@ -139,6 +141,41 @@ export function ProfilePage({ tezos, cfg, address, balance }: {
           </div>
         </Link>
       ))}
+
+      {ownedTokens.length > 0 && (
+        <>
+          <h3 style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 24, marginBottom: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Sparkles size={14} /> Collection · {ownedTokens.length} edition{ownedTokens.length === 1 ? '' : 's'}
+          </h3>
+          {ownedTokens.map(t => (
+            <Link key={`${t.collection_address}:${t.token_id}`} to={`/bit/${t.bid}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+              <div className="bit">
+                <div className="meta">
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <Sparkles size={12} style={{ color: 'var(--accent-soft)' }} />
+                    {t.balance > 1 ? `${t.balance}× edition #${t.token_id}` : `Edition #${t.token_id}`}
+                  </span>
+                  <span className="muted" style={{ fontSize: 12 }}>
+                    by{' '}
+                    {t.bit_syndicate
+                      ? <span>{t.bit_syndicate_name ?? 'syndicate'}</span>
+                      : <span>{t.bit_creator_username ?? (t.bit_creator?.slice(0, 12) + '…')}</span>
+                    }
+                  </span>
+                </div>
+                <div className="content">
+                  {t.bit_content
+                    ? <Markdown truncate>{t.bit_content}</Markdown>
+                    : <span className="muted">content unavailable</span>}
+                </div>
+                <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>
+                  {t.sold}/{t.total_editions} sold
+                </div>
+              </div>
+            </Link>
+          ))}
+        </>
+      )}
     </div>
   );
 }

@@ -154,14 +154,40 @@ app.get('/api/nft/owned/:address', async c => {
   const rows = await sql`
     SELECT t.collection_address, t.token_id, t.balance,
       e.bid, e.total_editions, e.sold, e.mint_price,
-      c.owner_kind, c.owner_address, c.owner_sid
+      c.owner_kind, c.owner_address, c.owner_sid,
+      b.creator AS bit_creator, b.creation_time AS bit_creation_time,
+      b.syndicate AS bit_syndicate,
+      s.name AS bit_syndicate_name,
+      u.username AS bit_creator_username,
+      ct.body AS bit_body
     FROM nft_tokens t
     JOIN nft_editions e ON e.collection_address = t.collection_address AND e.token_id = t.token_id
     JOIN nft_collections c ON c.address = t.collection_address
+    LEFT JOIN bits b ON b.bid = e.bid
+    LEFT JOIN users u ON u.address = b.creator
+    LEFT JOIN syndicates s ON s.sid = b.syndicate
+    LEFT JOIN content ct ON ct.hash = b.content_hash
     WHERE t.holder = ${address} AND t.balance > 0
     ORDER BY t.updated_at DESC
   `;
-  return c.json({ tokens: rows });
+  return c.json({ tokens: rows.map(r => ({
+    collection_address: r.collection_address,
+    token_id: Number(r.token_id),
+    balance: Number(r.balance),
+    bid: r.bid,
+    total_editions: Number(r.total_editions),
+    sold: Number(r.sold),
+    mint_price: Number(r.mint_price),
+    owner_kind: r.owner_kind,
+    owner_address: r.owner_address,
+    owner_sid: r.owner_sid,
+    bit_creator: r.bit_creator,
+    bit_creator_username: r.bit_creator_username,
+    bit_syndicate: r.bit_syndicate,
+    bit_syndicate_name: r.bit_syndicate_name,
+    bit_creation_time: r.bit_creation_time,
+    bit_content: r.bit_body ? r.bit_body.toString('utf8') : null,
+  })) });
 });
 
 // --- Content ---
