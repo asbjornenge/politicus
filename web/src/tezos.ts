@@ -287,6 +287,7 @@ export async function originateBitNFTCollection(
       treasury: cfg.contracts.Treasury,
       bit_registry: cfg.contracts.BitRegistry,
       identity_registry: cfg.contracts.IdentityRegistry,
+      payout: null,
       ledger: new MichelsonMap(),
       operators: new MichelsonMap(),
       editions: new MichelsonMap(),
@@ -295,6 +296,15 @@ export async function originateBitNFTCollection(
     },
   });
   return op;
+}
+
+export async function sendSetPayout(
+  tezos: TezosToolkit,
+  collectionAddr: string,
+  payoutAddr: string | null,
+) {
+  const c = await tezos.contract.at(collectionAddr);
+  return await c.methodsObject.set_payout(payoutAddr).send();
 }
 
 export async function sendRegisterCollection(

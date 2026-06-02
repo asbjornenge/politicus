@@ -220,15 +220,16 @@ async function applyBigmapUpdate(u, ptrs) {
     if (!value) return;
     const addr = value;
     const ownerKey = key; // hex of blake2b("u"|"s" + pack(...))
-    const meta = await fetchCollectionOwnerKind(addr);
+    const meta = await fetchCollectionStorage(addr);
     if (!meta) return;
     await sql`
-      INSERT INTO nft_collections (address, owner_kind, owner_address, owner_sid)
-      VALUES (${addr}, ${meta.kind}, ${meta.address ?? null}, ${meta.sid ?? null})
+      INSERT INTO nft_collections (address, owner_kind, owner_address, owner_sid, payout)
+      VALUES (${addr}, ${meta.kind}, ${meta.address ?? null}, ${meta.sid ?? null}, ${meta.payout ?? null})
       ON CONFLICT (address) DO UPDATE SET
         owner_kind = EXCLUDED.owner_kind,
         owner_address = EXCLUDED.owner_address,
         owner_sid = EXCLUDED.owner_sid,
+        payout = EXCLUDED.payout,
         updated_at = now()
     `;
   } else if (bigmap === ptrs.syndicates) {
@@ -397,21 +398,31 @@ async function pollPetitionVoteOps() {
   }
 }
 
-async function fetchCollectionOwnerKind(collectionAddr) {
+async function fetchCollectionStorage(collectionAddr) {
   try {
     const r = await fetch(`${TZKT_API}/v1/contracts/${collectionAddr}/storage`);
     if (!r.ok) return null;
     const s = await r.json();
     const owner = s?.owner;
     if (!owner) return null;
-    if (owner.user) return { kind: 'user', address: owner.user };
-    if (owner.syndicate) return { kind: 'syndicate', sid: owner.syndicate[1] ?? owner.syndicate.sid ?? null };
-    return null;
+    let meta = null;
+    if (owner.user) meta = { kind: 'user', address: owner.user };
+    else if (owner.syndicate) {
+      const sid = owner.syndicate.bytes ?? owner.syndicate[1] ?? owner.syndicate.sid ?? null;
+      meta = { kind: 'syndicate', sid };
+    }
+    if (!meta) return null;
+    return { ...meta, payout: s.payout ?? null };
   } catch { return null; }
 }
 
 async function syncCollection(addr) {
   try {
+    // Refresh the payout field on every cycle so it stays current after set_payout.
+    const meta = await fetchCollectionStorage(addr);
+    if (meta) {
+      await sql`UPDATE nft_collections SET payout = ${meta.payout ?? null}, updated_at = now() WHERE address = ${addr}`;
+    }
     const bms = await fetch(`${TZKT_API}/v1/contracts/${addr}/bigmaps`);
     if (!bms.ok) return;
     const arr = await bms.json();

@@ -74,6 +74,7 @@ type storage = {
   treasury          : address ;
   bit_registry      : address ;
   identity_registry : address ;
+  payout            : address option ;
   ledger            : (address * nat, nat) big_map ;
   operators         : (address * (address * nat), unit) big_map ;
   editions          : (nat, edition) big_map ;
@@ -165,10 +166,17 @@ let buy (token_id : nat) (store : storage) : operation list * storage =
     | None -> failwith "INVARIANT_SPLIT" in
 
   let pay_treasury_op = send_tez store.treasury (mutez_to_tez treasury_share_mutez) in
-  let creator_addr : address = match store.owner with
-    | User a -> a
-    | Syndicate (_, _) -> store.treasury in  (* For syndicates: route to Treasury for v1.
-                                                Multi-member split is a v2 concern. *)
+  let creator_addr : address = match store.payout with
+    | Some addr -> addr
+    | None ->
+      (match store.owner with
+       | User a -> a
+       | Syndicate (_, _) -> store.treasury) in
+  (* For user collections without an override the creator's own address
+     gets paid. For syndicate collections an explicit payout MUST be set
+     by an admin (set_payout); until then proceeds default to Treasury,
+     which is intentionally a friction so syndicates wire up their share
+     deliberately. *)
   let pay_creator_op =
     if creator_share_mutez > 0n
     then [send_tez creator_addr (mutez_to_tez creator_share_mutez)]
@@ -225,6 +233,11 @@ let balance_of (param : balance_of_param) (store : storage) : operation list * s
   let responses = List.map respond param.requests in
   [Tezos.Next.Operation.transaction responses 0tez param.callback], store
 
+[@entry]
+let set_payout (new_payout : address option) (store : storage) : operation list * storage =
+  let () = require_owner store in
+  ([] : operation list), { store with payout = new_payout }
+
 (* ---- views ---- *)
 
 [@view]
@@ -246,3 +259,6 @@ let get_owner_kind (() : unit) (store : storage) : owner_kind = store.owner
 
 [@view]
 let total_editions_minted (() : unit) (store : storage) : nat = store.next_token_id
+
+[@view]
+let get_payout (() : unit) (store : storage) : address option = store.payout

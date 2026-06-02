@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Coins, Loader2, Sparkles } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
 import type { Bit, Config, NFTCollection, NFTEdition } from '../api';
-import { getEditionsForBit, getMyCollection } from '../api';
+import { getEditionsForBit, getMyCollection, getSyndicateCollection } from '../api';
 import {
   originateBitNFTCollection, sendRegisterCollection, sendMintEdition, sendBuyEdition,
 } from '../tezos';
@@ -26,13 +26,16 @@ export function BitNFTSection({
   const [busyTokenId, setBusyTokenId] = useState<number | null>(null);
 
   const isOwn = address === bit.creator;
+  const asSyndicate = !!bit.syndicate;
 
   async function reload() {
     setLoading(true);
     try {
       setEditions(await getEditionsForBit(bit.bid));
-      if (isOwn && bit.creator) setCollection(await getMyCollection(bit.creator));
-      else setCollection(null);
+      if (isOwn) {
+        if (asSyndicate && bit.syndicate) setCollection(await getSyndicateCollection(bit.syndicate));
+        else if (bit.creator) setCollection(await getMyCollection(bit.creator));
+      } else setCollection(null);
     } finally { setLoading(false); }
   }
 
@@ -40,16 +43,22 @@ export function BitNFTSection({
 
   async function handleMint(totalEditions: number, mintPriceTez: number, royaltyBps: number) {
     if (!tezos || !address) return;
+    if (asSyndicate && !cfg.contracts.SyndicateRegistry) {
+      setErr('SyndicateRegistry missing from config'); return;
+    }
     setErr(''); setStatus('preparing…');
     try {
+      const ownerKind = asSyndicate && bit.syndicate
+        ? { kind: 'syndicate' as const, syndicateRegistry: cfg.contracts.SyndicateRegistry!, sid: bit.syndicate }
+        : { kind: 'user' as const, address };
       let collAddr = collection?.address;
       if (!collAddr) {
-        setStatus('originating your collection…');
-        const op = await originateBitNFTCollection(tezos, cfg, { kind: 'user', address });
+        setStatus(asSyndicate ? 'originating syndicate collection…' : 'originating your collection…');
+        const op = await originateBitNFTCollection(tezos, cfg, ownerKind);
         await op.confirmation();
         collAddr = op.contractAddress!;
         setStatus('registering collection with factory…');
-        const reg = await sendRegisterCollection(tezos, cfg, collAddr, { kind: 'user', address });
+        const reg = await sendRegisterCollection(tezos, cfg, collAddr, ownerKind);
         await reg.confirmation();
       }
       setStatus('minting edition…');
@@ -133,13 +142,18 @@ export function BitNFTSection({
         <div style={{ marginTop: 10 }}>
           {showMint ? (
             <MintEditionForm
+              asSyndicate={asSyndicate}
+              syndicateName={bit.syndicate_name}
               onSubmit={handleMint}
               onCancel={() => setShowMint(false)}
               busy={!!status}
             />
           ) : (
             <button onClick={() => setShowMint(true)}>
-              <Sparkles size={14} /> {editions.length === 0 ? 'Mint as collectible' : 'Mint another edition'}
+              <Sparkles size={14} />{' '}
+              {editions.length === 0
+                ? (asSyndicate ? `Mint under ${bit.syndicate_name ?? 'syndicate'}` : 'Mint as collectible')
+                : 'Mint another edition'}
             </button>
           )}
         </div>
@@ -152,11 +166,13 @@ export function BitNFTSection({
 }
 
 function MintEditionForm({
-  onSubmit, onCancel, busy,
+  onSubmit, onCancel, busy, asSyndicate, syndicateName,
 }: {
   onSubmit: (total: number, priceTez: number, royaltyBps: number) => void;
   onCancel: () => void;
   busy: boolean;
+  asSyndicate: boolean;
+  syndicateName: string | null;
 }) {
   const [total, setTotal] = useState('1');
   const [price, setPrice] = useState('5');
@@ -174,8 +190,9 @@ function MintEditionForm({
   return (
     <div className="compose" style={{ marginTop: 4 }}>
       <p className="muted" style={{ fontSize: 12, marginTop: 0, marginBottom: 8 }}>
-        First time? A small collection contract is originated under your address (~0.5 ꜩ origination), then editions live there.
-        Platform takes its primary-fee cut (snapshotted now, immutable per edition).
+        {asSyndicate
+          ? `Minting under the ${syndicateName ?? 'syndicate'} collection. First time? A collection contract is originated under the syndicate (~0.5 ꜩ origination, paid by you). Set the syndicate payout address on the syndicate page once minted — until then proceeds default to Treasury.`
+          : 'First time? A small collection contract is originated under your address (~0.5 ꜩ origination), then editions live there. Platform takes its primary-fee cut (snapshotted now, immutable per edition).'}
       </p>
       <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
         <label style={{ flex: 1, minWidth: 120, fontSize: 12, color: 'var(--text-muted)' }}>

@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Building2, Users, ChevronUp, ChevronDown, Flag, Shield, MapPin, Link as LinkIcon, X as XIcon, UserPlus, ShieldOff, Loader2 } from 'lucide-react';
+import { Building2, Users, ChevronUp, ChevronDown, Flag, Shield, MapPin, Link as LinkIcon, X as XIcon, UserPlus, ShieldOff, Loader2, Coins } from 'lucide-react';
 import type { TezosToolkit } from '@taquito/taquito';
-import type { Config, SyndicateDetail, SyndicateMember, ProfileDoc, ProfileLink } from '../api';
-import { getSyndicate, getProfileDoc, postProfile, uploadImage } from '../api';
+import type { Config, SyndicateDetail, SyndicateMember, ProfileDoc, ProfileLink, NFTCollection } from '../api';
+import { getSyndicate, getProfileDoc, postProfile, uploadImage, getSyndicateCollection } from '../api';
 import {
   sendUpdateSyndicateProfile, sendAddMember, sendRemoveMember,
-  sendPromoteAdmin, sendDemoteAdmin,
+  sendPromoteAdmin, sendDemoteAdmin, sendSetPayout,
 } from '../tezos';
 import { formatBitDate } from '../utils';
 import { Markdown } from './Markdown';
@@ -103,6 +103,7 @@ export function SyndicatePage({ tezos, cfg, address }: {
             onCancel={() => setEditing(false)}
           />
         )}
+        {isAdmin && tezos && <PayoutControl tezos={tezos} sid={s.sid} />}
       </div>
 
       <h3 style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 24, marginBottom: 8 }}>members</h3>
@@ -146,6 +147,95 @@ export function SyndicatePage({ tezos, cfg, address }: {
         </Link>
       ))}
     </div>
+  );
+}
+
+function PayoutControl({ tezos, sid }: { tezos: TezosToolkit; sid: string }) {
+  const [collection, setCollection] = useState<NFTCollection | null>(null);
+  const [newPayout, setNewPayout] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('');
+  const [err, setErr] = useState('');
+  const [open, setOpen] = useState(false);
+
+  const currentPayout = collection?.payout ?? null;
+
+  async function reload() {
+    setCollection(await getSyndicateCollection(sid));
+  }
+
+  useEffect(() => { reload(); }, [sid]);
+
+  async function save() {
+    if (!newPayout.trim().startsWith('tz') && !newPayout.trim().startsWith('KT')) {
+      setErr('payout must be a tz1/tz2/tz3 or KT1 address');
+      return;
+    }
+    if (!collection) return;
+    setBusy(true); setErr(''); setStatus('signing transaction…');
+    try {
+      const op = await sendSetPayout(tezos, collection.address, newPayout.trim());
+      setStatus(`in mempool (${op.hash.slice(0, 10)}…)`);
+      await op.confirmation();
+      setStatus('waiting for view…');
+      setTimeout(async () => { await reload(); setStatus(''); setNewPayout(''); }, 3000);
+    } catch (e: any) {
+      setErr(e.message ?? String(e));
+      setStatus('');
+    } finally { setBusy(false); }
+  }
+
+  if (!collection) {
+    return (
+      <details style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+        <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Coins size={13} /> NFT payout
+        </summary>
+        <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+          No NFT collection registered for this syndicate yet. As soon as a syndicate admin mints the first edition,
+          the collection contract is originated and you can set the payout address here. Until then, sales of any
+          syndicate-tagged edition default to Treasury.
+        </p>
+      </details>
+    );
+  }
+
+  return (
+    <details open={open} onToggle={e => setOpen((e.target as HTMLDetailsElement).open)} style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+      <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <Coins size={13} /> NFT payout
+        {currentPayout
+          ? <span style={{ fontSize: 11, color: 'var(--text-faint)', fontFamily: 'var(--font-mono)' }}>· {currentPayout.slice(0, 12)}…</span>
+          : <span style={{ fontSize: 11, color: 'var(--error)' }}>· not set (proceeds → Treasury)</span>}
+      </summary>
+      <div style={{ marginTop: 10 }}>
+        <p className="muted" style={{ fontSize: 12, lineHeight: 1.5, marginTop: 0 }}>
+          Where the creator share of each primary sale on this syndicate's NFT collection is sent.
+          Typically a multisig the syndicate controls — but any tz1/tz2/tz3 or KT1 address works. The platform's
+          snapshot fee always goes to Treasury separately.
+        </p>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+          <input
+            style={{
+              flex: 1, background: 'var(--bg)', border: '1px solid var(--border)',
+              color: 'inherit', padding: 6, borderRadius: 4, fontFamily: 'var(--font-mono)', fontSize: 12,
+            }}
+            placeholder="tz1… or KT1…"
+            value={newPayout}
+            onChange={e => setNewPayout(e.target.value)}
+            disabled={busy}
+          />
+          <button onClick={save} disabled={busy || !newPayout.trim()}>
+            {busy ? <Loader2 size={14} className="spinner" /> : 'save'}
+          </button>
+        </div>
+        {status && <div className="muted" style={{ fontSize: 12, fontStyle: 'italic' }}>{status}</div>}
+        {err && <div className="error" style={{ fontSize: 12 }}>{err}</div>}
+        <div className="muted" style={{ fontSize: 11, fontFamily: 'var(--font-mono)', marginTop: 8, wordBreak: 'break-all' }}>
+          collection: {collection.address}
+        </div>
+      </div>
+    </details>
   );
 }
 

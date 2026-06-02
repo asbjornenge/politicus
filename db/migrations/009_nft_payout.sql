@@ -1,0 +1,1 @@
+ALTER TABLE nft_collections ADD COLUMN IF NOT EXISTS payout TEXT;

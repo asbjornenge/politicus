@@ -40,6 +40,7 @@ export type NFTCollection = {
   owner_kind: 'user' | 'syndicate';
   owner_address: string | null;
   owner_sid: string | null;
+  payout: string | null;
   registered_at: string;
 };
 
