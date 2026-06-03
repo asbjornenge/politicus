@@ -3,6 +3,8 @@ import { serve } from '@hono/node-server';
 import { cors } from 'hono/cors';
 import postgres from 'postgres';
 import { packDataBytes } from '@taquito/michel-codec';
+import Anthropic from '@anthropic-ai/sdk';
+import crypto from 'node:crypto';
 
 function packAddressHex(addr) {
   const packed = packDataBytes({ string: addr }, { prim: 'address' });
@@ -28,7 +30,10 @@ const {
   SYNDICATE_REGISTRY,
   PROFILE_REGISTRY,
   BITNFT_FACTORY,
+  ANTHROPIC_API_KEY,
 } = process.env;
+
+const anthropic = ANTHROPIC_API_KEY ? new Anthropic({ apiKey: ANTHROPIC_API_KEY }) : null;
 
 if (!DATABASE_URL) { console.error('DATABASE_URL missing'); process.exit(1); }
 
@@ -119,6 +124,196 @@ app.get('/api/config', async c => {
       BitNFTFactory: BITNFT_FACTORY || undefined,
     },
   });
+});
+
+// --- Issues (newspaper) ---
+
+const ISSUE_SYSTEM_PROMPT = `You are the editor of Politicus, a user-governed publishing platform whose tagline is "Signed, civic, durable." The platform deliberately invokes 17th-century newsbook tradition (its name nods to Mercurius Politicus). Your job is to organise a list of recent bits into a serious, broadsheet-style front page.
+
+Rules — these are absolute:
+- ABSOLUTELY NO clickbait. Headlines must accurately summarise the bit's actual content in 3-8 words.
+- Use a neutral, editorial tone. No exclamation marks, no hyperbole, no marketing language.
+- NEVER invent facts. Each headline must be supported by the bit's content.
+- Pick the lead based on substance: a bit with depth, broad relevance, and engagement signal (yay > nay, replies). Prefer syndicate-attributed content for the lead when comparable.
+- Group remaining bits into 2-5 thematic sections. Section titles should be broad and traditional (e.g., "Politics", "Culture", "Technology", "Civic life"). Do not invent niche or jokey section names.
+- Intro: ONE short editorial sentence setting the tone of the issue. No throat-clearing. No statistics unless they're genuinely insightful.
+- Skip irrelevant bits. Don't pad sections.
+- Skip bits whose content reads as banter or low signal.
+
+Return JSON ONLY (no markdown fences, no commentary), matching this schema:
+{
+  "title": "Politicus — {date range}",
+  "intro": "One sentence editorial framing.",
+  "lead": { "bit_id": "<bid>", "headline": "..." },
+  "sections": [
+    {
+      "name": "Section name",
+      "items": [ { "bit_id": "<bid>", "headline": "..." } ]
+    }
+  ]
+}`;
+
+async function fetchBitsForIssue(timeStart, timeEnd, q, syndicate, limit = 80) {
+  return await sql`
+    SELECT b.bid, b.creator, b.creation_time, b.yay, b.nay, b.syndicate,
+      u.username, s.name AS syndicate_name,
+      ct.body
+    FROM bits b
+    LEFT JOIN users u ON u.address = b.creator
+    LEFT JOIN syndicates s ON s.sid = b.syndicate
+    LEFT JOIN content ct ON ct.hash = b.content_hash
+    WHERE b.creation_time >= ${timeStart}
+      AND b.creation_time <= ${timeEnd}
+      AND b.parent IS NULL
+      AND NOT EXISTS (SELECT 1 FROM moderated_content mc WHERE mc.content_hash = b.content_hash)
+      AND NOT EXISTS (SELECT 1 FROM moderated_users mu WHERE mu.address = b.creator)
+      ${syndicate ? sql`AND b.syndicate = ${syndicate}` : sql``}
+      ${q ? sql`AND ct.body::text ILIKE ${'%' + q + '%'}` : sql``}
+    ORDER BY (b.yay - b.nay) DESC, b.creation_time DESC
+    LIMIT ${limit}
+  `;
+}
+
+const DEFAULT_ISSUE_TTL_MS = 24 * 60 * 60 * 1000;
+
+async function composeIssue({ windowDays, q, syndicate, creator, isDefault }) {
+  if (!anthropic) throw new Error('ANTHROPIC_API_KEY not configured');
+  const timeEnd = new Date();
+  const timeStart = new Date(timeEnd.getTime() - windowDays * 24 * 60 * 60 * 1000);
+  const bits = await fetchBitsForIssue(timeStart, timeEnd, q, syndicate);
+  if (bits.length < 3) {
+    const e = new Error(`Only ${bits.length} matching bits — need at least 3.`);
+    e.status = 400; throw e;
+  }
+  const bitData = bits.map(b => ({
+    bid: b.bid,
+    creator: b.username ?? b.creator?.slice(0, 8),
+    syndicate: b.syndicate_name ?? null,
+    timestamp: b.creation_time,
+    yay: Number(b.yay),
+    nay: Number(b.nay),
+    excerpt: (b.body ? b.body.toString('utf8') : '').slice(0, 500),
+  }));
+  const completion = await anthropic.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 4096,
+    system: ISSUE_SYSTEM_PROMPT,
+    messages: [{
+      role: 'user',
+      content: `Date range: ${timeStart.toISOString().slice(0, 10)} → ${timeEnd.toISOString().slice(0, 10)}\n${q ? `Search filter: "${q}"\n` : ''}${syndicate ? `Syndicate filter: ${syndicate}\n` : ''}\nBits:\n${JSON.stringify(bitData, null, 2)}`
+    }],
+  });
+  const text = completion.content[0]?.text ?? '';
+  const jsonStart = text.indexOf('{');
+  const jsonEnd = text.lastIndexOf('}');
+  if (jsonStart === -1 || jsonEnd === -1) throw new Error('no json in response');
+  const layout = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
+  const referenced = new Set();
+  if (layout.lead?.bit_id) referenced.add(layout.lead.bit_id);
+  for (const s of (layout.sections ?? [])) {
+    for (const it of (s.items ?? [])) {
+      if (it.bit_id) referenced.add(it.bit_id);
+    }
+  }
+  const id = crypto.randomBytes(12).toString('hex');
+  await sql`
+    INSERT INTO issues
+      (id, title, intro, layout_json, bit_ids,
+       time_window_start, time_window_end,
+       filter_query, filter_syndicate, creator, is_default)
+    VALUES
+      (${id}, ${layout.title ?? 'Politicus'}, ${layout.intro ?? null},
+       ${JSON.stringify(layout)}::jsonb,
+       ${JSON.stringify([...referenced])}::jsonb,
+       ${timeStart.toISOString()}, ${timeEnd.toISOString()},
+       ${q}, ${syndicate}, ${creator}, ${!!isDefault})
+  `;
+  return { id, layout, time_window_start: timeStart, time_window_end: timeEnd };
+}
+
+app.get('/api/issues/default', async c => {
+  const fresh = await sql`
+    SELECT * FROM issues
+    WHERE is_default = true
+      AND created_at > ${new Date(Date.now() - DEFAULT_ISSUE_TTL_MS).toISOString()}
+    ORDER BY created_at DESC
+    LIMIT 1
+  `;
+  if (fresh.length > 0) return c.json({ id: fresh[0].id, cached: true });
+  if (!anthropic) return c.json({ error: 'editor_offline' }, 503);
+  try {
+    const result = await composeIssue({ windowDays: 7, q: null, syndicate: null, creator: null, isDefault: true });
+    return c.json({ id: result.id, cached: false });
+  } catch (e) {
+    return c.json({ error: 'editor_failed', detail: String(e?.message ?? e) }, e?.status ?? 502);
+  }
+});
+
+app.post('/api/issues', async c => {
+  if (!anthropic) return c.json({ error: 'editor_offline', detail: 'ANTHROPIC_API_KEY not configured' }, 503);
+  const body = await c.req.json().catch(() => null);
+  if (!body) return c.json({ error: 'expected json' }, 400);
+  try {
+    const result = await composeIssue({
+      windowDays: Math.max(1, Math.min(30, Number(body.window_days) || 7)),
+      q: body.query?.toString().trim() || null,
+      syndicate: body.syndicate?.toString().trim() || null,
+      creator: body.creator?.toString().trim() || null,
+      isDefault: false,
+    });
+    return c.json(result);
+  } catch (e) {
+    return c.json({ error: 'editor_failed', detail: String(e?.message ?? e) }, e?.status ?? 502);
+  }
+});
+
+app.get('/api/issues', async c => {
+  const limit = Math.min(50, Number(c.req.query('limit') ?? '20'));
+  const rows = await sql`
+    SELECT id, title, intro, time_window_start, time_window_end,
+      filter_query, filter_syndicate, creator, created_at
+    FROM issues
+    ORDER BY created_at DESC
+    LIMIT ${limit}
+  `;
+  return c.json({ issues: rows });
+});
+
+app.get('/api/issues/:id', async c => {
+  const id = c.req.param('id');
+  const rows = await sql`SELECT * FROM issues WHERE id = ${id}`;
+  if (rows.length === 0) return c.json({ error: 'not_found' }, 404);
+  const issue = rows[0];
+  let bitIds = issue.bit_ids ?? [];
+  if (typeof bitIds === 'string') {
+    try { bitIds = JSON.parse(bitIds); } catch { bitIds = []; }
+  }
+  const bits = bitIds.length > 0
+    ? await sql`
+        SELECT b.bid, b.creator, b.creation_time, b.syndicate,
+          u.username, s.name AS syndicate_name,
+          ct.body
+        FROM bits b
+        LEFT JOIN users u ON u.address = b.creator
+        LEFT JOIN syndicates s ON s.sid = b.syndicate
+        LEFT JOIN content ct ON ct.hash = b.content_hash
+        WHERE b.bid = ANY(${bitIds})
+      `
+    : [];
+  const bitMap = Object.fromEntries(bits.map(b => [b.bid, {
+    bid: b.bid,
+    creator: b.creator,
+    creator_username: b.username ?? null,
+    syndicate: b.syndicate,
+    syndicate_name: b.syndicate_name ?? null,
+    creation_time: b.creation_time,
+    content: b.body ? b.body.toString('utf8') : null,
+  }]));
+  let layoutJson = issue.layout_json;
+  if (typeof layoutJson === 'string') {
+    try { layoutJson = JSON.parse(layoutJson); } catch {}
+  }
+  return c.json({ issue: { ...issue, layout_json: layoutJson, bit_ids: bitIds, bits: bitMap } });
 });
 
 // --- BitNFT ---

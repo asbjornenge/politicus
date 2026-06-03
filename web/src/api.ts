@@ -279,6 +279,91 @@ export async function getOwnedTokens(address: string): Promise<NFTOwnedToken[]> 
   return tokens;
 }
 
+export type IssueLayoutItem = { bit_id: string; headline: string };
+export type IssueSection = { name: string; items: IssueLayoutItem[] };
+export type IssueLayout = {
+  title: string;
+  intro: string;
+  lead: IssueLayoutItem;
+  sections: IssueSection[];
+};
+
+export type IssueSummary = {
+  id: string;
+  title: string;
+  intro: string | null;
+  time_window_start: string;
+  time_window_end: string;
+  filter_query: string | null;
+  filter_syndicate: string | null;
+  creator: string | null;
+  created_at: string;
+};
+
+export type IssueBitRef = {
+  bid: string;
+  creator: string;
+  creator_username: string | null;
+  syndicate: string | null;
+  syndicate_name: string | null;
+  creation_time: string;
+  content: string | null;
+};
+
+export type IssueDetail = {
+  id: string;
+  title: string;
+  intro: string | null;
+  layout_json: IssueLayout;
+  bit_ids: string[];
+  time_window_start: string;
+  time_window_end: string;
+  filter_query: string | null;
+  filter_syndicate: string | null;
+  creator: string | null;
+  created_at: string;
+  bits: Record<string, IssueBitRef>;
+};
+
+export async function listIssues(limit = 20): Promise<IssueSummary[]> {
+  const r = await fetch(`/api/issues?limit=${limit}`);
+  if (!r.ok) return [];
+  const { issues } = await r.json();
+  return issues;
+}
+
+export async function getIssue(id: string): Promise<IssueDetail | null> {
+  const r = await fetch(`/api/issues/${id}`);
+  if (!r.ok) return null;
+  const { issue } = await r.json();
+  return issue;
+}
+
+export async function getDefaultIssueId(): Promise<string | null> {
+  const r = await fetch(`/api/issues/default`);
+  if (!r.ok) return null;
+  const { id } = await r.json();
+  return id ?? null;
+}
+
+export async function generateIssue(params: {
+  window_days?: number;
+  query?: string;
+  syndicate?: string;
+  creator?: string;
+}): Promise<{ id: string; layout: IssueLayout } | { error: string; detail?: string }> {
+  const r = await fetch('/api/issues', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({ error: `http ${r.status}` }));
+    return j;
+  }
+  return r.json();
+}
+
 export async function listMySyndicates(address: string): Promise<Array<Syndicate & { is_admin: boolean }>> {
   const r = await fetch(`/api/users/${address}/syndicates`);
   if (!r.ok) return [];

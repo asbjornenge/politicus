@@ -10,6 +10,9 @@ import { PetitionPage } from './components/PetitionPage';
 import { ProfilePage } from './components/ProfilePage';
 import { Syndicates } from './components/Syndicates';
 import { SyndicatePage } from './components/SyndicatePage';
+import { Issues } from './components/Issues';
+import { IssuePage } from './components/IssuePage';
+import { CurrentPage } from './components/CurrentPage';
 import { AboutPage } from './components/AboutPage';
 import { WalletGate } from './components/WalletGate';
 import { getConfig, getKernelVars } from './api';
@@ -133,19 +136,24 @@ export default function App() {
         </div>
       </header>
       <nav style={{ display: 'flex', gap: 24, marginBottom: 20, borderBottom: '1px solid var(--border)' }}>
-        <NavLink to="/" end style={navLinkStyle}>feed</NavLink>
+        <NavLink to="/" end style={navLinkStyle}>current</NavLink>
+        <NavLink to="/issues" style={navLinkStyle}>issues</NavLink>
+        <NavLink to="/feed" style={navLinkStyle}>feed</NavLink>
         <NavLink to="/petitions" style={navLinkStyle}>petitions</NavLink>
         <NavLink to="/syndicates" style={navLinkStyle}>syndicates</NavLink>
         <NavLink to="/about" style={navLinkStyle}>about</NavLink>
       </nav>
       <Routes>
-        <Route path="/" element={<Feed tezos={tezos} cfg={cfg} address={address} balance={balance} kernelVars={kernelVars} requestWallet={requestWallet} />} />
+        <Route path="/" element={<CurrentPage />} />
+        <Route path="/feed" element={<Feed tezos={tezos} cfg={cfg} address={address} balance={balance} kernelVars={kernelVars} requestWallet={requestWallet} />} />
         <Route path="/petitions" element={<Petitions tezos={tezos} cfg={cfg} address={address} balance={balance} kernelVars={kernelVars} requestWallet={requestWallet} />} />
         <Route path="/bit/:bid" element={<BitPage tezos={tezos} cfg={cfg} address={address} balance={balance} kernelVars={kernelVars} requestWallet={requestWallet} />} />
         <Route path="/petition/:pid" element={<PetitionPage tezos={tezos} cfg={cfg} address={address} requestWallet={requestWallet} />} />
         <Route path="/user/:address" element={<ProfilePage tezos={tezos} cfg={cfg} address={address} balance={balance} />} />
         <Route path="/syndicates" element={<Syndicates tezos={tezos} cfg={cfg} address={address} balance={balance} kernelVars={kernelVars} requestWallet={requestWallet} />} />
         <Route path="/syndicate/:sid" element={<SyndicatePage tezos={tezos} cfg={cfg} address={address} />} />
+        <Route path="/issues" element={<Issues address={address} requestWallet={requestWallet} />} />
+        <Route path="/issues/:id" element={<IssuePage />} />
         <Route path="/about" element={<AboutPage />} />
       </Routes>
       {walletPromptOpen && (

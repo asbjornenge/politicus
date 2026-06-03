@@ -352,6 +352,127 @@ button.icon-only {
 
 .mobile-only { display: none; }
 
+/* Issues — newspaper layout */
+.issue {
+  font-family: var(--font-display);
+  max-width: 880px;
+  margin: 0 auto;
+}
+.issue-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+.issue-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+.issue-title {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  margin: 8px 0 4px;
+  line-height: 1.1;
+}
+.issue-meta {
+  font-family: var(--font-italic);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.issue-rule {
+  border: 0;
+  border-top: 2px double var(--border-strong);
+  margin: 14px 0;
+}
+.issue-intro {
+  font-family: var(--font-italic);
+  font-style: italic;
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0 auto;
+  max-width: 600px;
+  text-align: center;
+}
+
+.issue-lead {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  padding-bottom: 26px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 26px;
+}
+.issue-lead-headline {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 30px;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  margin: 0 0 6px;
+}
+.issue-lead-excerpt {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 10px 0 0;
+}
+
+.issue-section {
+  margin-bottom: 28px;
+}
+.issue-section-name {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+  margin: 0 0 14px;
+}
+.issue-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
+}
+.issue-item {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+.issue-item-headline {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 16px;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  margin: 0 0 4px;
+}
+.issue-item-excerpt {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-muted);
+  margin: 6px 0 0;
+}
+.issue-byline {
+  font-family: var(--font-italic);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.issue-lead:hover .issue-lead-headline,
+.issue-item:hover .issue-item-headline { color: var(--accent-soft); }
+
 @media (max-width: 720px) {
   .editor-overlay { padding: 0; }
   .editor-modal { border-radius: 0; border: none; }
