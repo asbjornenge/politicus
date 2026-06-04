@@ -369,11 +369,12 @@ button.icon-only {
 }
 .issue-title {
   font-family: var(--font-display);
-  font-size: 34px;
+  font-size: 64px;
   font-weight: 400;
-  letter-spacing: 0.04em;
-  margin: 8px 0 4px;
-  line-height: 1.1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 4px 0 6px;
+  line-height: 1;
 }
 .issue-meta {
   font-family: var(--font-italic);
@@ -404,6 +405,24 @@ button.icon-only {
   padding-bottom: 26px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 26px;
+}
+.issue-lead-hero {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+  background: var(--bg-pre);
+}
+.issue-item-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  background: var(--bg-pre);
 }
 .issue-lead-headline {
   font-family: var(--font-display);

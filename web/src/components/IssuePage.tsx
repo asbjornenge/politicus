@@ -28,9 +28,9 @@ export function IssueRenderer({ issue }: { issue: IssueDetail }) {
       <header className="issue-header">
         <div className="muted issue-eyebrow">
           <Newspaper size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-          POLITICUS
+          THE PRESS
         </div>
-        <h1 className="issue-title">{layout.title}</h1>
+        <h1 className="issue-title">Politicus</h1>
         <div className="issue-meta">
           {new Date(issue.time_window_start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
           {' – '}
@@ -64,10 +64,22 @@ export function IssueRenderer({ issue }: { issue: IssueDetail }) {
   );
 }
 
+function extractFirstImage(content: string | null): string | null {
+  if (!content) return null;
+  const m = content.match(/!\[[^\]]*\]\(([^)\s]+)/);
+  return m ? m[1] : null;
+}
+
+function stripImages(content: string): string {
+  return content.replace(/!\[[^\]]*\]\([^)]+\)/g, '').replace(/\s+/g, ' ').trim();
+}
+
 function LeadArticle({ headline, bit }: { headline: string; bit: any }) {
-  const excerpt = (bit.content ?? '').slice(0, 400);
+  const img = extractFirstImage(bit.content);
+  const excerpt = stripImages(bit.content ?? '').slice(0, 400);
   return (
     <Link to={`/bit/${bit.bid}`} className="issue-lead">
+      {img && <img src={img} alt="" className="issue-lead-hero" />}
       <h2 className="issue-lead-headline">{headline}</h2>
       <Byline bit={bit} />
       <p className="issue-lead-excerpt">{excerpt}{excerpt.length >= 400 ? '…' : ''}</p>
@@ -76,9 +88,11 @@ function LeadArticle({ headline, bit }: { headline: string; bit: any }) {
 }
 
 function SectionItem({ headline, bit }: { headline: string; bit: any }) {
-  const excerpt = (bit.content ?? '').replace(/\s+/g, ' ').slice(0, 180);
+  const img = extractFirstImage(bit.content);
+  const excerpt = stripImages(bit.content ?? '').slice(0, 180);
   return (
     <Link to={`/bit/${bit.bid}`} className="issue-item">
+      {img && <img src={img} alt="" className="issue-item-thumb" />}
       <h3 className="issue-item-headline">{headline}</h3>
       <Byline bit={bit} />
       <p className="issue-item-excerpt">{excerpt}{excerpt.length >= 180 ? '…' : ''}</p>
