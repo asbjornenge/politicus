@@ -402,8 +402,6 @@ button.icon-only {
   display: block;
   text-decoration: none;
   color: inherit;
-  padding-bottom: 26px;
-  border-bottom: 1px solid var(--border);
   margin-bottom: 26px;
 }
 .issue-lead-hero {
@@ -446,13 +444,13 @@ button.icon-only {
 .issue-section-name {
   font-family: var(--font-display);
   font-weight: 400;
-  font-size: 13px;
-  letter-spacing: 0.3em;
+  font-size: 24px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 4px;
-  margin: 0 0 14px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-strong);
+  padding-bottom: 8px;
+  margin: 0 0 16px;
 }
 .issue-columns {
   display: grid;
