@@ -3,7 +3,7 @@ import { packDataBytes } from '@taquito/michel-codec';
 
 const {
   DATABASE_URL,
-  TZKT_API = 'https://api.shadownet.tzkt.io',
+  TZKT_API = 'https://api.previewnet.tezosx.tzkt.io',
   IDENTITY_REGISTRY,
   BIT_REGISTRY,
   BIT_DATA_STORE,

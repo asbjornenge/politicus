@@ -28,13 +28,13 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 config({ path: join(repoRoot, '.env') });
 
 const { POLITICUS_PRIVATE_KEY, POLITICUS_ADDRESS } = process.env;
-const rpcUrl = process.env.POLITICUS_RPC_URL ?? 'https://rpc.shadownet.teztnets.com';
+const rpcUrl = process.env.POLITICUS_RPC_URL ?? 'https://michelson.previewnet.tezosx.nomadic-labs.com';
 if (!POLITICUS_PRIVATE_KEY || !POLITICUS_ADDRESS) {
   console.error('Missing key/address in .env');
   process.exit(1);
 }
 
-const network = process.env.POLITICUS_NETWORK ?? 'shadownet';
+const network = process.env.POLITICUS_NETWORK ?? 'previewnet';
 const deploymentsPath = join(repoRoot, 'deployments.json');
 const deployments = existsSync(deploymentsPath)
   ? JSON.parse(readFileSync(deploymentsPath, 'utf8'))
@@ -61,7 +61,14 @@ function persist(key, addr) {
 
 async function originate(label, code, storage) {
   console.log(`\n=== Originate ${label} ===`);
-  const op = await tezos.contract.originate({ code, storage });
+  const est = await tezos.estimate.originate({ code, storage });
+  const op = await tezos.contract.originate({
+    code,
+    storage,
+    fee: Math.ceil(est.suggestedFeeMutez * 1.3),
+    gasLimit: Math.ceil(est.gasLimit * 1.2),
+    storageLimit: Math.ceil(est.storageLimit * 1.2),
+  });
   console.log(`  op ${op.hash}`);
   await op.confirmation();
   console.log(`  → ${op.contractAddress}`);
@@ -71,9 +78,22 @@ async function originate(label, code, storage) {
 async function call(label, target, method, args) {
   console.log(`-- ${label}`);
   const c = await tezos.contract.at(target);
-  const op = await (args === undefined
-    ? c.methodsObject[method]().send()
-    : c.methodsObject[method](args).send());
+  const params = args === undefined
+    ? c.methodsObject[method]().toTransferParams()
+    : c.methodsObject[method](args).toTransferParams();
+  const est = await tezos.estimate.transfer(params);
+  const send = args === undefined
+    ? c.methodsObject[method]().send({
+        fee: Math.ceil(est.suggestedFeeMutez * 1.3),
+        gasLimit: Math.ceil(est.gasLimit * 1.2),
+        storageLimit: Math.ceil(est.storageLimit * 1.2),
+      })
+    : c.methodsObject[method](args).send({
+        fee: Math.ceil(est.suggestedFeeMutez * 1.3),
+        gasLimit: Math.ceil(est.gasLimit * 1.2),
+        storageLimit: Math.ceil(est.storageLimit * 1.2),
+      });
+  const op = await send;
   console.log(`  op ${op.hash}`);
   await op.confirmation();
 }

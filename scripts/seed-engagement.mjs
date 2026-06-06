@@ -15,10 +15,10 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 config({ path: join(repoRoot, '.env') });
 
 const env = process.env;
-const rpcUrl = env.POLITICUS_RPC_URL ?? 'https://rpc.shadownet.teztnets.com';
+const rpcUrl = env.POLITICUS_RPC_URL ?? 'https://michelson.previewnet.tezosx.nomadic-labs.com';
 const ipfsUploadUrl = env.IPFS_UPLOAD_URL ?? 'http://internal.asbjornenge.com:5001';
-const tzkt = env.TZKT_API ?? 'https://api.shadownet.tzkt.io';
-const deps = JSON.parse(readFileSync(join(repoRoot, 'deployments.json'), 'utf8')).shadownet;
+const tzkt = env.TZKT_API ?? 'https://api.previewnet.tezosx.tzkt.io';
+const deps = JSON.parse(readFileSync(join(repoRoot, 'deployments.json'), 'utf8')).previewnet;
 
 async function uploadIPFS(text) {
   const fd = new FormData();
@@ -41,13 +41,31 @@ async function newSigner() {
   const signer = await InMemorySigner.fromSecretKey(sk);
   return { sk, address: await signer.publicKeyHash(), signer };
 }
-async function readVar(varContract, key, fallback) {
+async function readVar(_varContract, key, fallback) {
   try {
-    const v = await varContract.contractViews.get(key).executeView({ viewCaller: deps.VariablesLogic });
-    if (v == null) return fallback;
-    const n = Number(v.toString?.());
+    const r = await fetch(`${tzkt}/v1/contracts/${deps.VariablesDataStore}/bigmaps/values/keys/${key}`);
+    if (!r.ok) return fallback;
+    const j = await r.json();
+    const n = Number(j?.value);
     return Number.isFinite(n) ? n : fallback;
   } catch { return fallback; }
+}
+
+function bumped(est) {
+  return {
+    fee: Math.max(2000, Math.ceil(est.suggestedFeeMutez * 2)),
+    gasLimit: Math.ceil(est.gasLimit * 1.3),
+    storageLimit: Math.ceil(est.storageLimit * 1.3),
+  };
+}
+async function sendBumped(tezos, methodCall, extra = {}) {
+  const params = { ...methodCall.toTransferParams(), ...extra };
+  const est = await tezos.estimate.transfer(params);
+  return methodCall.send({ ...extra, ...bumped(est) });
+}
+async function transferBumped(tezos, transferParams) {
+  const est = await tezos.estimate.transfer(transferParams);
+  return tezos.contract.transfer({ ...transferParams, ...bumped(est) });
 }
 async function resolveBitLogic() {
   const r = await fetch(`${tzkt}/v1/contracts/${deps.BitDataStore}/storage`);
@@ -73,9 +91,9 @@ for (const name of NAMES) {
   console.log(`  ${name}: ${k.address}`);
 }
 
-console.log('Funding (20 ꜩ each)…');
+console.log('Funding (0.5 ꜩ each — Previewnet dev mode)…');
 for (const [name, k] of Object.entries(writers)) {
-  const op = await boot.contract.transfer({ to: k.address, amount: 20 });
+  const op = await transferBumped(boot, { to: k.address, amount: 500000, mutez: true });
   await op.confirmation();
   console.log(`  ${name}: ${op.hash}`);
 }
@@ -86,9 +104,9 @@ for (const [name, k] of Object.entries(writers)) {
   t.setSignerProvider(k.signer);
   const c = await t.contract.at(deps.IdentityRegistry);
   try {
-    const op = await c.methodsObject.register({
+    const op = await sendBumped(t, c.methodsObject.register({
       0: brightIdFor(k.address), 1: name, 2: '',
-    }).send();
+    }));
     await op.confirmation();
     console.log(`  ${name}: ${op.hash}`);
     writers[name].tezos = t;
@@ -137,7 +155,7 @@ if (sidPolitPress) {
   const syndContract = await boot.contract.at(deps.SyndicateRegistry);
   for (const name of NAMES) {
     try {
-      const op = await syndContract.methodsObject.add_member({ 0: sidPolitPress, 1: writers[name].address }).send();
+      const op = await sendBumped(boot, syndContract.methodsObject.add_member({ 0: sidPolitPress, 1: writers[name].address }));
       await op.confirmation();
       console.log(`  add_member ${name}: ${op.hash}`);
     } catch (e) {
@@ -153,10 +171,13 @@ for (const b of newBits) {
   idx++;
   try {
     const cid = await uploadIPFS(b.content);
-    const c = await writersWithBoot[b.who].tezos.contract.at(bitLogicAddr);
-    const op = await c.methodsObject.create_bit({
-      0: cidToHex(cid), 1: null, 2: b.syndicate ? sidPolitPress : null,
-    }).send({ amount: bitCost, mutez: true });
+    const tw = writersWithBoot[b.who].tezos;
+    const c = await tw.contract.at(bitLogicAddr);
+    const op = await sendBumped(
+      tw,
+      c.methodsObject.create_bit({ 0: cidToHex(cid), 1: null, 2: b.syndicate ? sidPolitPress : null }),
+      { amount: bitCost, mutez: true },
+    );
     await op.confirmation();
     const bidHex = crypto.createHash('blake2b512', {}).update(Buffer.concat([
       Buffer.from('05',  'hex'), // pack tag — placeholder; actual bid we'll resolve via TZKT
@@ -208,7 +229,11 @@ for (const name of NAMES) {
     if (!v) { skipped++; continue; }
     try {
       const total = bitVoteCost * v.votes * v.votes;
-      const op = await c.methodsObject.vote_bit({ 0: bid, 1: v.direction, 2: String(v.votes) }).send({ amount: total, mutez: true });
+      const op = await sendBumped(
+        w.tezos,
+        c.methodsObject.vote_bit({ 0: bid, 1: v.direction, 2: String(v.votes) }),
+        { amount: total, mutez: true },
+      );
       await op.confirmation();
       voted++;
       if (voted % 10 === 0) console.log(`  voted ${voted} so far…`);

@@ -15,5 +15,19 @@
     "PetitionDataStore": "KT19uJ79jfLJq4qE8CVhynZt3aQz6Pcj2wsx",
     "PetitionLogic": "KT1KQfADK5dDNwSWMJo7TqE6n4qUScu76h1B",
     "BitNFTFactory": "KT1HqLmws6X3syK1U9z7kiLwqG7F5JvyAh4w"
+  },
+  "previewnet": {
+    "IdentityRegistry": "KT19qhu8hiwLvM1eJQPRKaqrjyPsLBs6E3fm",
+    "Treasury": "KT1RWjgyAcqu7KUgnFsXSUb1FRnJDzEGh2qU",
+    "VariablesDataStore": "KT1GbeE139tZDL7TbRFty4J4goSqovHRvqLR",
+    "VariablesLogic": "KT1KjRUgbHx9BKwovkgYFVCBpYKARLaGAzEm",
+    "ModerationRegistry": "KT1B3kPBVSGaGYREJ3Y8VFN5nDwXc7RvtbNg",
+    "PetitionDataStore": "KT1WRU4QUPRWA2g81T7rmi4UhHxLuhoR8sW9",
+    "PetitionLogic": "KT1AcVPbLx5R1sZVwkPF3wPZUy2VagXwiKCX",
+    "SyndicateRegistry": "KT19PqeMpo2n4vwsDwWS8D1Ey4h5zqaGvqFs",
+    "BitDataStore": "KT1R3bUHko7bWKgFgRDGgyopxJQ5zp4mxU4a",
+    "BitRegistryLogic": "KT1NNfoiUy1tMPddQvXH8v18zfdMhyuHNqPj",
+    "ProfileRegistry": "KT1Jwh6TUvDw1eNYUAZDZu9JKpxcvqBuM4ta",
+    "BitNFTFactory": "KT1XJEg2Kk3Eqy7V7z2mGHUhcbFUJ7xntJHx"
   }
 }

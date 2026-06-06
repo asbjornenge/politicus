@@ -16,7 +16,7 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 config({ path: join(repoRoot, '.env') });
 
 const env = process.env;
-const rpcUrl = env.POLITICUS_RPC_URL ?? 'https://rpc.shadownet.teztnets.com';
+const rpcUrl = env.POLITICUS_RPC_URL ?? 'https://michelson.previewnet.tezosx.nomadic-labs.com';
 const ipfsUploadUrl = env.IPFS_UPLOAD_URL ?? 'http://internal.asbjornenge.com:5001';
 
 async function uploadIPFS(text) {
@@ -48,7 +48,28 @@ async function newSigner() {
 const bootAdmin = new TezosToolkit(rpcUrl);
 bootAdmin.setSignerProvider(await InMemorySigner.fromSecretKey(env.POLITICUS_PRIVATE_KEY));
 
-const deps = JSON.parse(readFileSync(join(repoRoot, 'deployments.json'), 'utf8')).shadownet;
+// Tezos X sequencer's fee schedule is EVM-style and ~30-50% higher than
+// Taquito 24's classic estimate. Apply a generous fee multiplier + a flat
+// minimum to absorb fixed-overhead miscounts.
+function bumped(est) {
+  return {
+    fee: Math.max(2000, Math.ceil(est.suggestedFeeMutez * 2)),
+    gasLimit: Math.ceil(est.gasLimit * 1.3),
+    storageLimit: Math.ceil(est.storageLimit * 1.3),
+  };
+}
+async function sendBumped(tezos, methodCall, extra = {}) {
+  const params = { ...methodCall.toTransferParams(), ...extra };
+  const est = await tezos.estimate.transfer(params);
+  return methodCall.send({ ...extra, ...bumped(est) });
+}
+
+async function transferBumped(tezos, transferParams) {
+  const est = await tezos.estimate.transfer(transferParams);
+  return tezos.contract.transfer({ ...transferParams, ...bumped(est) });
+}
+
+const deps = JSON.parse(readFileSync(join(repoRoot, 'deployments.json'), 'utf8')).previewnet;
 
 // --- 1. Generate two extra authors ---
 
@@ -60,7 +81,7 @@ console.log(`  linnea: ${linnea.address}`);
 
 console.log('Funding from POLITICUS…');
 for (const sub of [alma, linnea]) {
-  const op = await bootAdmin.contract.transfer({ to: sub.address, amount: 12 });
+  const op = await transferBumped(bootAdmin, { to: sub.address, amount: 1 });
   await op.confirmation();
   console.log(`  → ${sub.address}: ${op.hash}`);
 }
@@ -72,11 +93,11 @@ async function registerIfNeeded(label, signer, username) {
   tezos.setSignerProvider(signer);
   const c = await tezos.contract.at(deps.IdentityRegistry);
   try {
-    const op = await c.methodsObject.register({
+    const op = await sendBumped(tezos, c.methodsObject.register({
       0: await placeholderBrightId(await signer.publicKeyHash()),
       1: username,
       2: '',
-    }).send();
+    }));
     console.log(`  register ${label} (${username}): ${op.hash}`);
     await op.confirmation();
   } catch (e) {
@@ -98,24 +119,30 @@ const syndContract = await bootAdmin.contract.at(deps.SyndicateRegistry);
 const varContract = await bootAdmin.contract.at(deps.VariablesLogic);
 async function readVar(key, fallback) {
   try {
-    const v = await varContract.contractViews.get(key).executeView({ viewCaller: deps.VariablesLogic });
-    if (v == null) return fallback;
-    const s = v.toString?.();
-    const n = Number(s);
+    const tzkt = env.TZKT_API ?? 'https://api.previewnet.tezosx.tzkt.io';
+    const r = await fetch(`${tzkt}/v1/contracts/${deps.VariablesDataStore}/bigmaps/values/keys/${key}`);
+    if (!r.ok) return fallback;
+    const j = await r.json();
+    const n = Number(j?.value);
     return Number.isFinite(n) ? n : fallback;
   } catch { return fallback; }
 }
 const synCost = await readVar('SyndicateCreationCost', 5000000);
 console.log(`  SyndicateCreationCost: ${synCost}`);
-const synOp = await syndContract.methodsObject
-  .create_syndicate({ 0: 'The Politicus Press', 1: 'A small editorial collective covering signal-over-noise current affairs.' })
-  .send({ amount: synCost, mutez: true });
+const synOp = await sendBumped(
+  bootAdmin,
+  syndContract.methodsObject.create_syndicate({
+    0: 'The Politicus Press',
+    1: 'A small editorial collective covering signal-over-noise current affairs.',
+  }),
+  { amount: synCost, mutez: true },
+);
 console.log(`  create: ${synOp.hash}`);
 await synOp.confirmation();
 
 // blake2b(pack creator || pack name) — let TZKT tell us
 await new Promise(r => setTimeout(r, 4000));
-const tzkt = env.TZKT_API ?? 'https://api.shadownet.tzkt.io';
+const tzkt = env.TZKT_API ?? 'https://api.previewnet.tezosx.tzkt.io';
 const syndKeys = await (await fetch(`${tzkt}/v1/contracts/${deps.SyndicateRegistry}/bigmaps/syndicates/keys?active=true&sort.desc=lastLevel&limit=5`)).json();
 const ourSid = syndKeys.find(k => k.value?.name === 'The Politicus Press')?.key;
 if (!ourSid) throw new Error('could not find new syndicate sid');
@@ -123,7 +150,7 @@ console.log(`  sid: ${ourSid}`);
 
 // Add alma and linnea as members
 for (const [label, addr] of [['alma', alma.address], ['linnea', linnea.address]]) {
-  const op = await syndContract.methodsObject.add_member({ 0: ourSid, 1: addr }).send();
+  const op = await sendBumped(bootAdmin, syndContract.methodsObject.add_member({ 0: ourSid, 1: addr }));
   console.log(`  add_member ${label}: ${op.hash}`);
   await op.confirmation();
 }
@@ -202,11 +229,11 @@ for (const bit of bits) {
     const cid = await uploadIPFS(bit.content);
     const t = writers[bit.who].tezos;
     const c = await t.contract.at(BIT_REGISTRY);
-    const op = await c.methodsObject.create_bit({
-      0: cidToHex(cid),
-      1: null,
-      2: bit.syndicate ?? null,
-    }).send({ amount: bitCost, mutez: true });
+    const op = await sendBumped(
+      t,
+      c.methodsObject.create_bit({ 0: cidToHex(cid), 1: null, 2: bit.syndicate ?? null }),
+      { amount: bitCost, mutez: true },
+    );
     await op.confirmation();
     console.log(`  [${i}/${bits.length}] ${bit.who}${bit.syndicate ? ' @PolitPress' : ''}: ${op.hash}`);
     await new Promise(r => setTimeout(r, 800));

@@ -14,7 +14,7 @@ function packAddressHex(addr) {
 const {
   DATABASE_URL,
   PORT = '8080',
-  RPC_URL = 'https://rpc.shadownet.teztnets.com',
+  RPC_URL = 'https://michelson.previewnet.tezosx.nomadic-labs.com',
   FAUCET_URL = '',
   IPFS_UPLOAD_URL = 'http://localhost:5001',
   IPFS_GATEWAY_URL = 'http://localhost:8080',
@@ -64,7 +64,7 @@ async function fetchFromIpfs(cid) {
 
 app.get('/health', c => c.json({ ok: true }));
 
-const TZKT_API_URL = process.env.TZKT_API ?? 'https://api.shadownet.tzkt.io';
+const TZKT_API_URL = process.env.TZKT_API ?? 'https://api.previewnet.tezosx.tzkt.io';
 
 app.get('/api/kernel-vars', async c => {
   const valuesContract = VARIABLES_DATA_STORE || VARIABLES_ADDRESS;

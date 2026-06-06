@@ -9,7 +9,7 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 config({ path: join(repoRoot, '.env') });
 
 const { POLITICUS_PRIVATE_KEY, POLITICUS_ADDRESS } = process.env;
-const rpcUrl = process.env.POLITICUS_RPC_URL ?? 'https://rpc.shadownet.teztnets.com';
+const rpcUrl = process.env.POLITICUS_RPC_URL ?? 'https://michelson.previewnet.tezosx.nomadic-labs.com';
 
 if (!POLITICUS_PRIVATE_KEY || !POLITICUS_ADDRESS) {
   console.error('Missing key/address in .env. Run `npm run generate-key` first.');
@@ -26,7 +26,7 @@ const code = JSON.parse(readFileSync(artifactPath, 'utf8'));
 const initial = JSON.parse(readFileSync(join(repoRoot, 'config/initial-variables.json'), 'utf8'));
 
 const entries = Object.entries(initial).filter(([k]) => !k.startsWith('_'));
-const network = process.env.POLITICUS_NETWORK ?? 'shadownet';
+const network = process.env.POLITICUS_NETWORK ?? 'previewnet';
 const deploymentsPath = join(repoRoot, 'deployments.json');
 const deployments = existsSync(deploymentsPath)
   ? JSON.parse(readFileSync(deploymentsPath, 'utf8'))

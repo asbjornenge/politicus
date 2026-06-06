@@ -9,8 +9,8 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 config({ path: join(repoRoot, '.env') });
 
 const { POLITICUS_PRIVATE_KEY, POLITICUS_ADDRESS } = process.env;
-const rpcUrl = process.env.POLITICUS_RPC_URL ?? 'https://rpc.shadownet.teztnets.com';
-const network = process.env.POLITICUS_NETWORK ?? 'shadownet';
+const rpcUrl = process.env.POLITICUS_RPC_URL ?? 'https://michelson.previewnet.tezosx.nomadic-labs.com';
+const network = process.env.POLITICUS_NETWORK ?? 'previewnet';
 
 if (!POLITICUS_PRIVATE_KEY || !POLITICUS_ADDRESS) {
   console.error('Missing key/address in .env.');

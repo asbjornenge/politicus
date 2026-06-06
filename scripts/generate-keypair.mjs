@@ -29,9 +29,9 @@ const env = `# Generated ${new Date().toISOString()} by scripts/generate-keypair
 POLITICUS_PRIVATE_KEY=${sk}
 POLITICUS_PUBLIC_KEY=${pk}
 POLITICUS_ADDRESS=${pkh}
-POLITICUS_FAUCET_URL=https://faucet.shadownet.teztnets.com
-POLITICUS_RPC_URL=https://rpc.shadownet.teztnets.com
-POLITICUS_NETWORK=shadownet
+POLITICUS_FAUCET_URL=https://faucet.previewnet.tezosx.nomadic-labs.com
+POLITICUS_RPC_URL=https://michelson.previewnet.tezosx.nomadic-labs.com
+POLITICUS_NETWORK=previewnet
 `;
 
 writeFileSync(envPath, env, { mode: 0o600 });

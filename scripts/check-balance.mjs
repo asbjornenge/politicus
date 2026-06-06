@@ -7,7 +7,7 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 config({ path: join(repoRoot, '.env') });
 
 const { POLITICUS_ADDRESS } = process.env;
-const rpcUrl = process.env.POLITICUS_RPC_URL ?? 'https://rpc.shadownet.teztnets.com';
+const rpcUrl = process.env.POLITICUS_RPC_URL ?? 'https://michelson.previewnet.tezosx.nomadic-labs.com';
 
 if (!POLITICUS_ADDRESS) {
   console.error('POLITICUS_ADDRESS missing from .env. Run `npm run generate-key` first.');

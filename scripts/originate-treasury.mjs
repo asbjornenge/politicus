@@ -9,7 +9,7 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 config({ path: join(repoRoot, '.env') });
 
 const { POLITICUS_PRIVATE_KEY, POLITICUS_ADDRESS } = process.env;
-const rpcUrl = process.env.POLITICUS_RPC_URL ?? 'https://rpc.shadownet.teztnets.com';
+const rpcUrl = process.env.POLITICUS_RPC_URL ?? 'https://michelson.previewnet.tezosx.nomadic-labs.com';
 
 if (!POLITICUS_PRIVATE_KEY || !POLITICUS_ADDRESS) {
   console.error('Missing key/address in .env. Run `npm run generate-key` first.');
@@ -24,7 +24,7 @@ if (!existsSync(artifactPath)) {
 
 const code = JSON.parse(readFileSync(artifactPath, 'utf8'));
 
-const network = process.env.POLITICUS_NETWORK ?? 'shadownet';
+const network = process.env.POLITICUS_NETWORK ?? 'previewnet';
 const deploymentsPath = join(repoRoot, 'deployments.json');
 const deployments = existsSync(deploymentsPath)
   ? JSON.parse(readFileSync(deploymentsPath, 'utf8'))
@@ -41,9 +41,13 @@ tezos.setSignerProvider(await InMemorySigner.fromSecretKey(POLITICUS_PRIVATE_KEY
 console.log(`Originating Treasury to ${rpcUrl}`);
 console.log(`  admin = ${POLITICUS_ADDRESS}`);
 
+const est = await tezos.estimate.originate({ code, storage: POLITICUS_ADDRESS });
 const op = await tezos.contract.originate({
   code,
   storage: POLITICUS_ADDRESS,
+  fee: Math.ceil(est.suggestedFeeMutez * 1.3),
+  gasLimit: Math.ceil(est.gasLimit * 1.2),
+  storageLimit: Math.ceil(est.storageLimit * 1.2),
 });
 
 console.log(`Origination op: ${op.hash}`);

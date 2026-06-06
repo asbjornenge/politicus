@@ -19,6 +19,8 @@
     "originate:petition": "node scripts/originate-petition.mjs",
     "originate:syndicate": "node scripts/originate-syndicate.mjs",
     "originate:profile": "node scripts/originate-profile.mjs",
+    "originate:bit-nft-factory": "node scripts/originate-bit-nft-factory.mjs",
+    "governance-reset": "node scripts/governance-reset.mjs",
     "setup-petition-test": "node scripts/setup-petition-test.mjs",
     "transfer-admin": "node scripts/transfer-variables-admin.mjs",
     "transfer-moderation-admin": "node scripts/transfer-moderation-admin.mjs",

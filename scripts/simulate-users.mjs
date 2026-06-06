@@ -16,9 +16,9 @@ import getTez from '@tacoinfra/get-tez';
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 config({ path: join(repoRoot, '.env') });
 
-const dep = JSON.parse(readFileSync(join(repoRoot, 'deployments.json'), 'utf8')).shadownet;
-const RPC = process.env.POLITICUS_RPC_URL ?? 'https://rpc.shadownet.teztnets.com';
-const FAUCET = process.env.POLITICUS_FAUCET_URL ?? 'https://faucet.shadownet.teztnets.com';
+const dep = JSON.parse(readFileSync(join(repoRoot, 'deployments.json'), 'utf8')).previewnet;
+const RPC = process.env.POLITICUS_RPC_URL ?? 'https://michelson.previewnet.tezosx.nomadic-labs.com';
+const FAUCET = process.env.POLITICUS_FAUCET_URL ?? 'https://faucet.previewnet.tezosx.nomadic-labs.com';
 
 const NUM_USERS = 3;
 
@@ -63,7 +63,7 @@ async function createPetition(user, key, value) {
   await op.confirmation();
   for (let attempt = 1; attempt <= 12; attempt++) {
     await new Promise(r => setTimeout(r, 2500));
-    const r = await fetch(`https://api.shadownet.tzkt.io/v1/contracts/${dep.PetitionRegistry}/bigmaps/petitions/keys?sort.desc=id&limit=1`);
+    const r = await fetch(`https://api.previewnet.tezosx.tzkt.io/v1/contracts/${dep.PetitionRegistry}/bigmaps/petitions/keys?sort.desc=id&limit=1`);
     const keys = await r.json();
     if (keys.length > 0 && keys[0]?.key) return keys[0].key;
   }
