@@ -32,6 +32,11 @@ type storage = {
   variables          : address ;
   treasury           : address ;
   governance         : address ;
+  (* Cross-runtime payment forwarders allowed to call create_bit_via_forwarder.
+     Set members are the KT1 aliases of EVM forwarder contracts (derived via
+     tez_getEthereumTezosAddress). Managed by governance + bootstrap_admin
+     during the bootstrap window. *)
+  payment_forwarders : address set ;
 }
 
 (* ---- helpers ---- *)
@@ -114,6 +119,33 @@ let create_bit (params : bytes * bytes option * bytes option) (store : storage) 
   let pay_op = send_to_treasury store.treasury cost in
   [put_op ; pay_op], store
 
+(* Cross-runtime path: an EVM forwarder has already pulled the user's USDC
+   on the EVM side and is now recording the bit on Michelson. Identity
+   flows through the explicit `payer` parameter, because Tezos.get_sender()
+   here is the forwarder's KT1 alias, not the user's. *)
+[@entry]
+let create_bit_via_forwarder (params : address * bytes * bytes option * bytes option) (store : storage) : operation list * storage =
+  let (payer, content_hash, parent, syndicate) = params in
+  let () = if not (Set.mem (Tezos.get_sender ()) store.payment_forwarders) then
+    failwith "NOT_AUTHORIZED_FORWARDER" else () in
+  let () = require_registered payer store.identity_registry in
+  let () = match syndicate with
+    | None -> ()
+    | Some sid -> require_member payer sid store.syndicate_registry in
+
+  let bid = compute_bid payer content_hash in
+  let b : bit = {
+    creator       = payer ;
+    content_hash  = content_hash ;
+    parent        = parent ;
+    syndicate     = syndicate ;
+    creation_time = Tezos.get_now () ;
+    yay           = 0n ;
+    nay           = 0n ;
+  } in
+  let put_op = call_create_bit store.data_store bid b in
+  [put_op], store
+
 [@entry]
 let vote_bit (params : bytes * bool * nat) (store : storage) : operation list * storage =
   let (bid, direction, votes_n) = params in
@@ -132,6 +164,18 @@ let vote_bit (params : bytes * bool * nat) (store : storage) : operation list * 
 (* ---- governance ---- *)
 
 [@entry]
+let add_payment_forwarder (forwarder : address) (store : storage) : operation list * storage =
+  let () = if Tezos.get_sender () <> store.governance then failwith "NOT_GOVERNANCE" in
+  ([] : operation list),
+  { store with payment_forwarders = Set.add forwarder store.payment_forwarders }
+
+[@entry]
+let remove_payment_forwarder (forwarder : address) (store : storage) : operation list * storage =
+  let () = if Tezos.get_sender () <> store.governance then failwith "NOT_GOVERNANCE" in
+  ([] : operation list),
+  { store with payment_forwarders = Set.remove forwarder store.payment_forwarders }
+
+[@entry]
 let set_governance (new_gov : address) (store : storage) : operation list * storage =
   let () = if Tezos.get_sender () <> store.governance then failwith "NOT_GOVERNANCE" in
   ([] : operation list), { store with governance = new_gov }
@@ -143,3 +187,7 @@ let governance_migrate (new_logic : address) (store : storage) : operation list 
 
 [@view]
 let get_governance (() : unit) (store : storage) : address = store.governance
+
+[@view]
+let is_payment_forwarder (addr : address) (store : storage) : bool =
+  Set.mem addr store.payment_forwarders

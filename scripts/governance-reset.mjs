@@ -193,6 +193,7 @@ const BitLogic = await originate('BitRegistryLogic', art('BitRegistryLogic'), {
   variables: VLogic,
   treasury: net.Treasury,
   governance: POLITICUS_ADDRESS,
+  payment_forwarders: [],
 });
 persist('BitRegistryLogic', BitLogic);
 

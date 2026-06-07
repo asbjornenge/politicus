@@ -108,3 +108,62 @@ writing). The forwarder and receiver designs carry over unchanged; the only
 real-world friction is that LayerZero introduces a bridge-counterparty
 trust assumption that Circle's native CCTP would not (no public ETA for
 CCTP on Etherlink/Tezos X as of June 2026).
+
+---
+
+# PoC #3 — full integration with the real BitRegistryLogic
+
+Proves USDC payment → bit on the live Politicus feed.
+
+## Contract changes outside the experiment
+
+`contracts/BitRegistryLogic.mligo` gained:
+
+- `payment_forwarders : address set` in storage — KT1 aliases of EVM
+  forwarders trusted to attribute bits to specific users.
+- `create_bit_via_forwarder(payer, content_hash, parent, syndicate)` — only
+  callable by allowlisted forwarders; records the bit with `creator = payer`
+  instead of `Tezos.get_sender()`.
+- `add_payment_forwarder` / `remove_payment_forwarder` (governance-gated).
+- `is_payment_forwarder` view.
+
+`scripts/redeploy-bit-stack.mjs` does a surgical redeploy of just BDS + BRL
+to roll out the new logic without going through a full Migrate_logic
+petition — fine on Previewnet, would not be acceptable on mainnet.
+
+## Experiment additions
+
+- `contracts/PoliticsBitForwarder.sol` — pulls USDC, calls
+  `BitRegistryLogic.create_bit_via_forwarder` via the gateway with a
+  4-element Micheline pair: `Pair(payer_address, Pair(content_hash,
+  Pair(None, None)))`.
+- `scripts/micheline.mjs` — JS encoders for strings, bytes, nats (signed-
+  zarith with 6-bit first byte), Pairs, addresses (tz1/2/3/KT1 → 22-byte
+  optimised form).
+- `scripts/poc3-register-user.mjs` — registers the EVM user in
+  IdentityRegistry via direct user→gateway call (Pattern B). The user
+  doesn't need a Tezos wallet at all — Tezos.get_sender() inside Michelson
+  resolves to their auto-derived KT1 alias.
+- `scripts/poc3-deploy.mjs` — deploys the new forwarder and calls
+  `BRL.add_payment_forwarder` with its KT1 alias.
+- `scripts/poc3-trigger.mjs` — uploads bit content to IPFS, calls
+  payAndCreateBit, then polls the Politicus API until the bit shows up,
+  printing the public URL.
+
+## Verified flow
+
+```
+EVM EOA → gateway → IdentityRegistry.register   (one-time, Pattern B)
+EVM EOA → USDC.approve(forwarder, 10 USDC)      (one-time)
+EVM EOA → forwarder.payAndCreateBit(amount, contentBytes, payerKT1)
+          ├─ forwarder pulls USDC from EOA
+          └─ forwarder → gateway → BRL.create_bit_via_forwarder
+              ├─ BRL checks sender ∈ payment_forwarders
+              ├─ BRL writes bit with creator = payer
+              └─ BDS atomically stores the bit
+indexer picks up via TzKT, /api/bits returns it, frontend renders.
+```
+
+The bit visible at `politicus.coder.surflabs.no/#/bit/<bid>` was created
+this way — no `octez-client`, no Tezos wallet, just MetaMask and a USDC
+balance on the EVM side.
