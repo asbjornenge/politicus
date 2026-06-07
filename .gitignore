@@ -1,6 +1,7 @@
 *.swp
 .env
 .env.local
+experiments/**/.env
 node_modules/
 artifacts/
 .ligo/

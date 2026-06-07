@@ -32,5 +32,9 @@
     "@taquito/taquito": "^24.3.0",
     "@taquito/utils": "^24.3.0",
     "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "ethers": "^6.16.0",
+    "solc": "^0.8.35"
   }
 }
