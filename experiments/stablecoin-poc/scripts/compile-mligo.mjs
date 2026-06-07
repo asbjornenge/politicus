@@ -17,10 +17,15 @@ const uid = process.getuid?.() ?? 0;
 const gid = process.getgid?.() ?? 0;
 const userFlag = uid ? `--user ${uid}:${gid}` : '';
 
-const src = 'contracts/Counter.mligo';
-const baseCmd = `docker run --rm ${userFlag} -v "${repo}":/cwd -w /cwd ${ligoImage} compile contract ${src} --skip-analytics`;
-
-console.log(`Compiling ${src}`);
-execSync(`${baseCmd} -o artifacts/Counter.tz`, { stdio: 'inherit' });
-execSync(`${baseCmd} --michelson-format json -o artifacts/Counter.json`, { stdio: 'inherit' });
-console.log(`wrote ${outDir}/Counter.{tz,json}`);
+import { readdirSync } from 'node:fs';
+const contractsDir = join(repo, 'contracts');
+const sources = readdirSync(contractsDir).filter(f => f.endsWith('.mligo'));
+for (const f of sources) {
+  const name = f.replace(/\.mligo$/, '');
+  const src = `contracts/${f}`;
+  const baseCmd = `docker run --rm ${userFlag} -v "${repo}":/cwd -w /cwd ${ligoImage} compile contract ${src} --skip-analytics`;
+  console.log(`Compiling ${src}`);
+  execSync(`${baseCmd} -o artifacts/${name}.tz`, { stdio: 'inherit' });
+  execSync(`${baseCmd} --michelson-format json -o artifacts/${name}.json`, { stdio: 'inherit' });
+}
+console.log(`wrote artifacts/`);

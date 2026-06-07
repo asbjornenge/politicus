@@ -45,6 +45,66 @@ identity model behaves as documented.`
 - Per-user accounting (no identity-aware logic).
 - Relayer-style sponsorship (the EVM EOA pays its own gas).
 
-Those are PoC #2 territory — a mock-USDC FA2, a `create_bit` entrypoint that
-accepts an optional `payer_override`, and a relayer-allowlist on
-`VariablesLogic`.
+Those gaps are filled by PoC #2 below.
+
+---
+
+# PoC #2 — cross-runtime USDC payment
+
+Proves that a user can pay in (mock) ERC-20 USDC on the EVM side and have an
+atomic state mutation happen on the Michelson side — the on-chain shape that
+the eventual bit-payment-in-USDC flow needs.
+
+## Layout (added)
+
+- `contracts/MockUSDC.sol` — minimal ERC-20 standing in for LayerZero-bridged
+  USDC. 6 decimals. Admin-only `mint`.
+- `contracts/PoliticsPayments.sol` — escrow forwarder. Pulls USDC via
+  `transferFrom`, then calls Michelson via the NAC gateway with a Micheline-
+  encoded `Pair(payer_bytes20, Pair(amount_nat, content_bytes))`. Includes
+  hand-rolled Micheline encoders for `bytes`, `nat`, and `Pair`.
+- `contracts/PaymentReceiver.mligo` — verifies sender = configured forwarder
+  KT1 alias, stores the payment indexed by sequential id and by EVM payer.
+- `scripts/deploy-poc2.mjs` — deploys all three (USDC, receiver, forwarder)
+  and wires `expected_forwarder` to the forwarder's KT1 alias.
+- `scripts/trigger-poc2.mjs` — mints + approves + pays, then verifies USDC
+  flow on EVM and payment record on Michelson.
+- `scripts/redeploy-forwarder.mjs` — partial-redeploy helper for when only
+  the forwarder bytecode changed.
+
+## Run
+
+```fish
+node experiments/stablecoin-poc/scripts/compile-sol.mjs
+node experiments/stablecoin-poc/scripts/compile-mligo.mjs
+node experiments/stablecoin-poc/scripts/deploy-poc2.mjs
+node experiments/stablecoin-poc/scripts/trigger-poc2.mjs
+```
+
+Expected: `PoC #2 happy path verified ✓`.
+
+## Gotcha — Micheline zarith encoding
+
+The first byte of a zarith `int`/`nat` literal carries only **6** magnitude
+bits, not 7: `[continuation(1) | sign(1) | data(6)]`. Subsequent bytes use
+the standard `[continuation(1) | data(7)]`. Treating the first byte the
+same as the rest produces silently-malformed payloads — the gateway
+reverts with empty data on the EVM side, so the trail is hard to find.
+This trapped a first attempt; the fix is in `PoliticsPayments._encodeNat`.
+
+## Atomic revert — empirically confirmed
+
+The first failed attempt (before the zarith fix) burned ~1.24M gas on the
+EVM side but moved no USDC and incremented no receiver state. That is the
+gateway propagating the Michelson failure back through the forwarder's
+low-level `.call`, which then re-reverts via inline assembly. The whole
+EVM transaction is atomic with respect to the Michelson outcome.
+
+## Production-mapping
+
+For mainnet, replace `MockUSDC` with the LayerZero-bridged USDC contract
+already deployed on Etherlink/Tezos X (`0x796Ea11…00F9` at the time of
+writing). The forwarder and receiver designs carry over unchanged; the only
+real-world friction is that LayerZero introduces a bridge-counterparty
+trust assumption that Circle's native CCTP would not (no public ETA for
+CCTP on Etherlink/Tezos X as of June 2026).

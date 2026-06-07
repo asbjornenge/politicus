@@ -2,21 +2,25 @@
 // experiments/stablecoin-poc/artifacts/.
 
 import solc from 'solc';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = join(here, '..');
-const srcPath = join(repo, 'contracts', 'EvmToMichelsonCounter.sol');
+const contractsDir = join(repo, 'contracts');
 const outDir = join(repo, 'artifacts');
 if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
 
-const source = readFileSync(srcPath, 'utf8');
+const sources = {};
+for (const f of readdirSync(contractsDir)) {
+  if (!f.endsWith('.sol')) continue;
+  sources[f] = { content: readFileSync(join(contractsDir, f), 'utf8') };
+}
 
 const input = {
   language: 'Solidity',
-  sources: { 'EvmToMichelsonCounter.sol': { content: source } },
+  sources,
   settings: {
     optimizer: { enabled: true, runs: 200 },
     outputSelection: { '*': { '*': ['abi', 'evm.bytecode.object'] } },
@@ -31,10 +35,12 @@ if (output.errors) {
   if (fatal.length) process.exit(1);
 }
 
-const contracts = output.contracts['EvmToMichelsonCounter.sol'];
-for (const [name, c] of Object.entries(contracts)) {
-  const out = { abi: c.abi, bytecode: '0x' + c.evm.bytecode.object };
-  const dest = join(outDir, `${name}.json`);
-  writeFileSync(dest, JSON.stringify(out, null, 2));
-  console.log(`wrote ${dest} (${out.bytecode.length / 2 - 1} bytes bytecode)`);
+for (const [file, contracts] of Object.entries(output.contracts)) {
+  for (const [name, c] of Object.entries(contracts)) {
+    if (!c.evm.bytecode.object) continue; // skip interfaces / abstract
+    const out = { abi: c.abi, bytecode: '0x' + c.evm.bytecode.object };
+    const dest = join(outDir, `${name}.json`);
+    writeFileSync(dest, JSON.stringify(out, null, 2));
+    console.log(`wrote ${dest} (${out.bytecode.length / 2 - 1} bytes bytecode)`);
+  }
 }
